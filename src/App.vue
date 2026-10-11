@@ -113,7 +113,7 @@ onBeforeUnmount(() => {
 <template lang="pug">
   .app
     Transition(name="loader")
-      .app__loader(v-if="!isLoading")
+      .app__loader(v-if="isLoading")
         .app__loader-logo
           .app__loader-word
             span.app__loader-letter(
