@@ -29,6 +29,7 @@
           :href="item.href"
           :target="item.external ? '_blank' : null"
           :rel="item.external ? 'noopener noreferrer' : null"
+          @click="handleContactClick($event, item)"
         )
           img.app-contacts__item-icon(
             :src="item.icon"
@@ -43,6 +44,7 @@
         :href="item.href"
         :target="item.external ? '_blank' : null"
         :rel="item.external ? 'noopener noreferrer' : null"
+        @click="handleContactClick($event, item)"
       )
         img.app-contacts__item-icon(
           :src="item.icon"
@@ -132,6 +134,7 @@ const contacts = [
     id: 1,
     icon: mailIcon,
     value: 'nneranov@mail.ru',
+    modal: true,
   },
   {
     id: 2,
@@ -144,6 +147,7 @@ const contacts = [
     id: 3,
     icon: linkIcon,
     value: 'Telegram / VK / WhatsApp',
+    modal: true,
   },
 ]
 
@@ -189,6 +193,13 @@ const feedbackForm = reactive({
 const openFeedbackModal = () => {
   isFeedbackOpen.value = true
   document.body.style.overflow = 'hidden'
+}
+
+const handleContactClick = (event, item) => {
+  if (!item.modal) return
+
+  event.preventDefault()
+  openFeedbackModal()
 }
 
 const closeFeedbackModal = () => {
@@ -380,6 +391,7 @@ onBeforeUnmount(() => {
       align-items center
       margin-bottom 2.315vh
       width fit-content
+      cursor pointer
 
       &:last-of-type
         margin-bottom 0
