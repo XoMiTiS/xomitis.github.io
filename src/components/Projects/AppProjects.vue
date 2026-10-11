@@ -77,17 +77,17 @@ import LeavesImage from '@/assets/images/projects/zerna/leaves.png'
 import CupImage from '@/assets/images/projects/zerna/cup.png'
 import BranchImage from '@/assets/images/projects/zerna/branch_zerna.png'
 
-import BranchFormaImage from '@/assets/images/projects/forma/branch_forma.png'
-import StagesImage from '@/assets/images/projects/forma/stages.png'
-import HouseImage from '@/assets/images/projects/forma/house.png'
+import BranchFormaImage from '@/assets/images/projects/forma/branch_forma.webp'
+import StagesImage from '@/assets/images/projects/forma/stages.webp'
+import HouseImage from '@/assets/images/projects/forma/house.webp'
 
 import DancingBackgroundImage from '@/assets/images/projects/pulse/dancing_background.png'
 import HeadphonesImage from '@/assets/images/projects/pulse/headphones.png'
 import PImage from '@/assets/images/projects/pulse/p.png'
 
-import FormaSiteImage from '@/assets/images/projects/forma/forma_preview.png'
-import PulseSiteImage from '@/assets/images/projects/pulse/pulse_preview.png'
-import ZernaSiteImage from '@/assets/images/projects/zerna/zerna_preview.png'
+import FormaSiteImage from '@/assets/images/projects/forma/forma_preview.webp'
+import PulseSiteImage from '@/assets/images/projects/pulse/pulse_preview.webp'
+import ZernaSiteImage from '@/assets/images/projects/zerna/zerna_preview.webp'
 
 const projects = [
   {
