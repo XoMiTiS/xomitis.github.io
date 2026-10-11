@@ -40,7 +40,7 @@
 <script setup>
 import ArrowIcon from '../icons/Arrow.vue'
 
-import { ref, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 
 defineProps({
   isMobile: {
@@ -54,7 +54,8 @@ const rotation = ref(0)
 let isDragging = false
 let lastPointerAngle = 0
 let lastTime = 0
-let angularVelocity = 0
+const autoVelocity = 0.08
+let angularVelocity = autoVelocity
 let animationFrame = null
 
 const sandLayer = ref(null)
@@ -238,15 +239,14 @@ const startInertia = () => {
 
     emitSand(deltaTime)
 
-    angularVelocity *= Math.pow(
+    const friction = Math.pow(
       0.985,
       deltaTime / 16.67,
     )
 
-    if (Math.abs(angularVelocity) < 0.001) {
-      animationFrame = null
-      return
-    }
+    angularVelocity =
+      autoVelocity +
+      (angularVelocity - autoVelocity) * friction
 
     animationFrame = requestAnimationFrame(animate)
   }
@@ -267,6 +267,10 @@ const scrollToProjects = () => {
     block: 'start',
   })
 }
+
+onMounted(() => {
+  startInertia()
+})
 
 onBeforeUnmount(() => {
   stopInertia()

@@ -13,7 +13,7 @@
         .app-contacts__content-description
           span !{'Есть идея, задача или предложение о сотрудничестве?<br> Напишите мне — буду рад обсудить детали.'}
 
-        .app-contacts__content-button.unselectable(@click="openFeedbackModal")
+        .app-contacts__content-button.unselectable(@click="openFeedbackModal($event)")
           .app-contacts__button-text
             span Связаться
           ArrowIcon.app-contacts__button-arrow
@@ -58,7 +58,7 @@
         v-if="isFeedbackOpen"
         @click="closeFeedbackModal"
       )
-        .feedback-modal__window(@click.stop)
+        .feedback-modal__window(ref="feedbackWindow" @click.stop)
           .feedback-modal__header
             .feedback-modal__header-content
               .feedback-modal__label Обратная связь
@@ -119,7 +119,7 @@
 
 </template>
 <script setup>
-import { reactive, ref, onMounted, onBeforeUnmount } from 'vue'
+import { reactive, ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
 
 import ArrowIcon from '@/components/icons/Arrow.vue'
 import mailIcon from '@/assets/images/contacts/mail.svg'
@@ -183,6 +183,9 @@ defineProps({
 })
 
 const isFeedbackOpen = ref(false)
+const feedbackWindow = ref(null)
+let feedbackSourceRect = null
+let feedbackAnimation = null
 
 const feedbackForm = reactive({
   name: '',
@@ -190,19 +193,125 @@ const feedbackForm = reactive({
   message: '',
 })
 
-const openFeedbackModal = () => {
+const openFeedbackModal = async (event) => {
+  feedbackSourceRect = event.currentTarget.getBoundingClientRect()
+
   isFeedbackOpen.value = true
   document.body.style.overflow = 'hidden'
+
+  await nextTick()
+
+  const modal = feedbackWindow.value
+
+  if (!modal) return
+
+  const modalRect = modal.getBoundingClientRect()
+
+  const sourceCenterX =
+    feedbackSourceRect.left + feedbackSourceRect.width / 2
+
+  const sourceCenterY =
+    feedbackSourceRect.top + feedbackSourceRect.height / 2
+
+  const modalCenterX =
+    modalRect.left + modalRect.width / 2
+
+  const modalCenterY =
+    modalRect.top + modalRect.height / 2
+
+  const translateX = sourceCenterX - modalCenterX
+  const translateY = sourceCenterY - modalCenterY
+
+  const scaleX =
+    feedbackSourceRect.width / modalRect.width
+
+  const scaleY =
+    feedbackSourceRect.height / modalRect.height
+
+  feedbackAnimation?.cancel()
+
+  feedbackAnimation = modal.animate(
+    [
+      {
+        transform: `translate(${translateX}px, ${translateY}px) scale(${scaleX}, ${scaleY})`,
+        opacity: 0,
+        borderRadius: '2vw',
+      },
+      {
+        transform: 'translate(0, 0) scale(1, 1)',
+        opacity: 1,
+        borderRadius: '0',
+      },
+    ],
+    {
+      duration: 550,
+      easing: 'cubic-bezier(.16, 1, .3, 1)',
+      fill: 'both',
+    },
+  )
 }
 
 const handleContactClick = (event, item) => {
   if (!item.modal) return
 
   event.preventDefault()
-  openFeedbackModal()
+  openFeedbackModal(event)
 }
 
-const closeFeedbackModal = () => {
+const closeFeedbackModal = async () => {
+  const modal = feedbackWindow.value
+
+  if (!modal || !feedbackSourceRect) {
+    isFeedbackOpen.value = false
+    document.body.style.overflow = ''
+    return
+  }
+
+  const modalRect = modal.getBoundingClientRect()
+
+  const sourceCenterX =
+    feedbackSourceRect.left + feedbackSourceRect.width / 2
+
+  const sourceCenterY =
+    feedbackSourceRect.top + feedbackSourceRect.height / 2
+
+  const modalCenterX =
+    modalRect.left + modalRect.width / 2
+
+  const modalCenterY =
+    modalRect.top + modalRect.height / 2
+
+  const translateX = sourceCenterX - modalCenterX
+  const translateY = sourceCenterY - modalCenterY
+
+  const scaleX =
+    feedbackSourceRect.width / modalRect.width
+
+  const scaleY =
+    feedbackSourceRect.height / modalRect.height
+
+  feedbackAnimation?.cancel()
+
+  feedbackAnimation = modal.animate(
+    [
+      {
+        transform: 'translate(0, 0) scale(1, 1)',
+        opacity: 1,
+      },
+      {
+        transform: `translate(${translateX}px, ${translateY}px) scale(${scaleX}, ${scaleY})`,
+        opacity: 0,
+      },
+    ],
+    {
+      duration: 350,
+      easing: 'cubic-bezier(.7, 0, .84, 0)',
+      fill: 'both',
+    },
+  )
+
+  await feedbackAnimation.finished.catch(() => {})
+
   isFeedbackOpen.value = false
   document.body.style.overflow = ''
 }
@@ -455,6 +564,8 @@ onBeforeUnmount(() => {
     background-color rgba(15, 15, 15, 1)
     border .052vw solid rgba(255, 255, 255, .15)
     color rgba(241, 242, 246, 1)
+    overflow hidden
+    will-change transform, opacity
 
   &__header
     display flex

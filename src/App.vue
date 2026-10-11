@@ -15,6 +15,49 @@ import PulsePreview from '@/assets/images/projects/pulse/pulse_preview.png'
 import ZernaPreview from '@/assets/images/projects/zerna/zerna_preview.png'
 
 const isLoading = ref(true)
+const loaderFirstName = 'Nikita'.split('')
+const loaderLastName = 'Neranov'.split('')
+
+const visibleFirstName = ref(loaderFirstName.length)
+const visibleLastName = ref(loaderLastName.length)
+
+let loaderDirection = -1
+let loaderTimer = null
+
+const animateLoaderName = () => {
+  const isFull =
+    visibleFirstName.value === loaderFirstName.length &&
+    visibleLastName.value === loaderLastName.length
+
+  const isInitials =
+    visibleFirstName.value === 1 &&
+    visibleLastName.value === 1
+
+  const delay = isFull || isInitials ? 700 : 330
+
+  loaderTimer = setTimeout(() => {
+    if (isInitials) {
+      loaderDirection = 1
+    } else if (isFull) {
+      loaderDirection = -1
+    }
+
+    visibleFirstName.value += loaderDirection
+    visibleLastName.value += loaderDirection
+
+    visibleFirstName.value = Math.max(
+      1,
+      Math.min(loaderFirstName.length, visibleFirstName.value),
+    )
+
+    visibleLastName.value = Math.max(
+      1,
+      Math.min(loaderLastName.length, visibleLastName.value),
+    )
+
+    animateLoaderName()
+  }, delay)
+}
 
 const preloadImages = [
   FormaPreview,
@@ -48,6 +91,8 @@ const waitForPageLoad = () => {
 }
 
 onMounted(async () => {
+  animateLoaderName()
+
   document.body.style.overflow = 'hidden'
 
   await Promise.all([
@@ -60,6 +105,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  clearTimeout(loaderTimer)
   document.body.style.overflow = ''
 })
 </script>
@@ -67,8 +113,25 @@ onBeforeUnmount(() => {
 <template lang="pug">
   .app
     Transition(name="loader")
-      .app__loader(v-if="isLoading")
-        .app__loader-logo NN
+      .app__loader(v-if="!isLoading")
+        .app__loader-logo
+          .app__loader-word
+            span.app__loader-letter(
+              v-for="(letter, index) in loaderFirstName"
+              :key="`name-${index}`"
+              :class="{ 'app__loader-letter_hidden': index >= visibleFirstName }"
+            ) {{ letter }}
+
+          .app__loader-gap(
+            :class="{ 'app__loader-gap_hidden': visibleFirstName === 1 && visibleLastName === 1 }"
+          )
+
+          .app__loader-word
+            span.app__loader-letter(
+              v-for="(letter, index) in loaderLastName"
+              :key="`surname-${index}`"
+              :class="{ 'app__loader-letter_hidden': index >= visibleLastName }"
+            ) {{ letter }}
         .app__loader-line
           .app__loader-line_progress
     .app__content
@@ -167,15 +230,45 @@ onBeforeUnmount(() => {
   z-index 99999
 
   &-logo
+    height 4vh
+    display flex
+    justify-content center
+    align-items center
     font-family 'Open Sans', sans-serif
     font-weight 600
     font-size 2vw
     color rgba(221, 223, 223, 1)
     margin-bottom 2vh
+    white-space nowrap
 
     @media(platform: mobile)
+      height 5vh
       font-size 7vw
       margin-bottom 2vh
+
+  &-word
+    display flex
+    align-items center
+
+  &-letter
+    display inline-block
+    max-width 1em
+    opacity 1
+    overflow hidden
+    transform translateY(0) scale(1)
+    transition max-width .3s cubic-bezier(.16, 1, .3, 1), opacity .22s ease, transform .3s cubic-bezier(.16, 1, .3, 1)
+
+    &_hidden
+      max-width 0
+      opacity 0
+      transform translateY(.5vh) scale(.7)
+
+  &-gap
+    width .3em
+    transition width .3s cubic-bezier(.16, 1, .3, 1)
+
+    &_hidden
+      width 0
 
   &-line
     width 8vw
@@ -192,7 +285,7 @@ onBeforeUnmount(() => {
     height 100%
     background-color rgba(248, 247, 247, 1)
     transform translateX(-100%)
-    animation loading-line 1.2s ease-in-out infinite
+    animation loading-line 2.4s ease-in-out infinite
 
 .loader-leave-active
   transition opacity .4s ease
@@ -209,4 +302,60 @@ onBeforeUnmount(() => {
 
   100%
     transform translateX(100%)
+
+@keyframes loader-name-full
+  0%
+    opacity 1
+    transform scale(1)
+    letter-spacing 0
+
+  30%
+    opacity 1
+    transform scale(1)
+    letter-spacing 0
+
+  45%
+    opacity 0
+    transform scale(.35)
+    letter-spacing -.15em
+
+  70%
+    opacity 0
+    transform scale(.35)
+    letter-spacing -.15em
+
+  85%
+    opacity 1
+    transform scale(1)
+    letter-spacing 0
+
+  100%
+    opacity 1
+    transform scale(1)
+    letter-spacing 0
+
+@keyframes loader-name-short
+  0%
+    opacity 0
+    transform scale(1.8)
+
+  30%
+    opacity 0
+    transform scale(1.8)
+
+  45%
+    opacity 1
+    transform scale(1)
+
+  70%
+    opacity 1
+    transform scale(1)
+
+  85%
+    opacity 0
+    transform scale(1.8)
+
+  100%
+    opacity 0
+    transform scale(1.8)
 </style>

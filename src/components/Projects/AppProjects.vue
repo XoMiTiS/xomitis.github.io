@@ -14,7 +14,7 @@
       .app-projects__content-item(
         v-for="(project, index) in projects"
         :key="project.id"
-        @click="openProject(project)"
+        @click="openProject(project, $event)"
       )
         .app-projects__item-media(
           :style="{backgroundColor: project.color, backgroundImage: `url(${project.image})`, backgroundSize: `${project.width} auto`}"
@@ -39,6 +39,7 @@
     Teleport(to="body")
       .project-modal(
         v-show="selectedProject"
+        ref="projectModal"
         @click="closeProject"
       )
         .project-modal__close.unselectable(
@@ -67,7 +68,7 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import ArrowIcon from '../icons/Arrow.vue'
 import FormaImage from '@/assets/images/projects/forma.png'
 import PulseImage from '@/assets/images/projects/pulse.png'
@@ -178,15 +179,125 @@ defineProps({
 })
 
 const selectedProject = ref(null)
+const projectModal = ref(null)
 
-const openProject = (project) => {
+let projectSourceRect = null
+let projectAnimation = null
+
+const openProject = async (project, event) => {
+  projectSourceRect = event.currentTarget.getBoundingClientRect()
+
   selectedProject.value = project
   document.body.style.overflow = 'hidden'
+
+  await nextTick()
+
+  const modal = projectModal.value
+
+  if (!modal) return
+
+  const modalRect = modal.getBoundingClientRect()
+
+  const sourceCenterX =
+    projectSourceRect.left + projectSourceRect.width / 2
+
+  const sourceCenterY =
+    projectSourceRect.top + projectSourceRect.height / 2
+
+  const modalCenterX =
+    modalRect.left + modalRect.width / 2
+
+  const modalCenterY =
+    modalRect.top + modalRect.height / 2
+
+  const translateX = sourceCenterX - modalCenterX
+  const translateY = sourceCenterY - modalCenterY
+
+  const scaleX =
+    projectSourceRect.width / modalRect.width
+
+  const scaleY =
+    projectSourceRect.height / modalRect.height
+
+  projectAnimation?.cancel()
+
+  projectAnimation = modal.animate(
+    [
+      {
+        transform: `translate(${translateX}px, ${translateY}px) scale(${scaleX}, ${scaleY})`,
+        opacity: 0,
+      },
+      {
+        transform: 'translate(0, 0) scale(1, 1)',
+        opacity: 1,
+      },
+    ],
+    {
+      duration: 350,
+      easing: 'cubic-bezier(.16, 1, .3, 1)',
+      fill: 'forwards',
+    },
+  )
 }
 
-const closeProject = () => {
+const closeProject = async () => {
+  const modal = projectModal.value
+
+  if (!modal || !projectSourceRect) {
+    selectedProject.value = null
+    document.body.style.overflow = ''
+    return
+  }
+
+  const modalRect = modal.getBoundingClientRect()
+
+  const sourceCenterX =
+    projectSourceRect.left + projectSourceRect.width / 2
+
+  const sourceCenterY =
+    projectSourceRect.top + projectSourceRect.height / 2
+
+  const modalCenterX =
+    modalRect.left + modalRect.width / 2
+
+  const modalCenterY =
+    modalRect.top + modalRect.height / 2
+
+  const translateX = sourceCenterX - modalCenterX
+  const translateY = sourceCenterY - modalCenterY
+
+  const scaleX =
+    projectSourceRect.width / modalRect.width
+
+  const scaleY =
+    projectSourceRect.height / modalRect.height
+
+  projectAnimation?.cancel()
+
+  projectAnimation = modal.animate(
+    [
+      {
+        transform: 'translate(0, 0) scale(1, 1)',
+        opacity: 1,
+      },
+      {
+        transform: `translate(${translateX}px, ${translateY}px) scale(${scaleX}, ${scaleY})`,
+        opacity: 0,
+      },
+    ],
+    {
+      duration: 350,
+      easing: 'cubic-bezier(.7, 0, .84, 0)',
+      fill: 'forwards',
+    },
+  )
+
+  await projectAnimation.finished.catch(() => {})
+
   selectedProject.value = null
   document.body.style.overflow = ''
+
+  projectAnimation = null
 }
 
 const onKeydown = (event) => {
@@ -478,6 +589,8 @@ const counterLabel = computed(() => `${pad(1)} — ${pad(projects.length)}`)
   overflow-y auto
   padding 3vh 3vw
   box-sizing border-box
+  transform-origin center
+  will-change transform, opacity
 
   &__images
     width 100%
