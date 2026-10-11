@@ -20,7 +20,15 @@
             .app-header__button-line
           ArrowIcon.app-header__button-arrow
 
-      .app-header__content-image(v-if="!isMobile")
+      .app-header__content-image-wrapper(v-if="!isMobile")
+        .app-header__sand(ref="sandLayer")
+        .app-header__content-image(
+          :style="{ transform: `rotate(${rotation}deg)` }"
+          @pointerdown="startRotation"
+          @pointermove="moveRotation"
+          @pointerup="endRotation"
+          @pointercancel="endRotation"
+        )
 
     .app-header__footer
       img.app-header__footer-icon(v-if="isMobile" src='../../assets/images/contacts/pin_white.svg')
@@ -32,6 +40,8 @@
 <script setup>
 import ArrowIcon from '../icons/Arrow.vue'
 
+import { ref, onBeforeUnmount } from 'vue'
+
 defineProps({
   isMobile: {
     type: Boolean,
@@ -39,12 +49,228 @@ defineProps({
   },
 })
 
+const rotation = ref(0)
+
+let isDragging = false
+let lastPointerAngle = 0
+let lastTime = 0
+let angularVelocity = 0
+let animationFrame = null
+
+const sandLayer = ref(null)
+
+let sandAccumulator = 0
+
+const createSandParticle = (intensity) => {
+  if (!sandLayer.value) return
+
+  const layer = sandLayer.value
+
+  if (layer.children.length > 120) return
+
+  const rect = layer.getBoundingClientRect()
+
+  const center = rect.width / 2
+  const radius = rect.width * 0.46
+
+  const angle = Math.random() * Math.PI * 2
+
+  const x = center + Math.cos(angle) * radius
+  const y = center + Math.sin(angle) * radius
+
+  const direction = Math.sign(angularVelocity) || 1
+
+  const tangentX = -Math.sin(angle) * direction
+  const tangentY = Math.cos(angle) * direction
+
+  const outwardX = Math.cos(angle)
+  const outwardY = Math.sin(angle)
+
+  const force = 15 + intensity * 65
+
+  const translateX =
+    tangentX * force +
+    outwardX * (10 + Math.random() * 25)
+
+  const translateY =
+    tangentY * force +
+    outwardY * (10 + Math.random() * 25) +
+    15
+
+  const size = 3 + Math.random() * (3 + intensity * 5)
+
+  const particle = document.createElement('span')
+
+  Object.assign(particle.style, {
+    position: 'absolute',
+    left: `${x}px`,
+    top: `${y}px`,
+    width: `${size}px`,
+    height: `${size}px`,
+    borderRadius: '50%',
+    background: `rgba(202, 174, 118, ${0.5 + Math.random() * 0.5})`,
+    pointerEvents: 'none',
+    transform: 'translate(-50%, -50%)',
+  })
+
+  layer.appendChild(particle)
+
+  const animation = particle.animate(
+    [
+      {
+        transform: 'translate(-50%, -50%) scale(1)',
+        opacity: 1,
+      },
+      {
+        transform: `translate(
+          calc(-50% + ${translateX}px),
+          calc(-50% + ${translateY}px)
+        ) scale(.2)`,
+        opacity: 0,
+      },
+    ],
+    {
+      duration: 450 + Math.random() * 400,
+      easing: 'cubic-bezier(.15,.6,.3,1)',
+      fill: 'forwards',
+    },
+  )
+
+  animation.onfinish = () => {
+    particle.remove()
+  }
+}
+
+const getPointerAngle = (event, element) => {
+  const rect = element.getBoundingClientRect()
+
+  const centerX = rect.left + rect.width / 2
+  const centerY = rect.top + rect.height / 2
+
+  return Math.atan2(
+    event.clientY - centerY,
+    event.clientX - centerX,
+  ) * 180 / Math.PI
+}
+
+const stopInertia = () => {
+  if (!animationFrame) return
+
+  cancelAnimationFrame(animationFrame)
+  animationFrame = null
+}
+
+const startRotation = (event) => {
+  if (event.button !== 0) return
+
+  stopInertia()
+
+  isDragging = true
+  angularVelocity = 0
+  lastPointerAngle = getPointerAngle(event, event.currentTarget)
+  lastTime = performance.now()
+
+  event.currentTarget.setPointerCapture(event.pointerId)
+}
+
+const emitSand = (deltaTime) => {
+  const speed = Math.abs(angularVelocity)
+
+  if (speed < 0.05) return
+
+  const intensity = Math.min(speed / 1.2, 1)
+
+  sandAccumulator += intensity * deltaTime * 0.06
+
+  let particles = Math.floor(sandAccumulator)
+
+  sandAccumulator -= particles
+
+  particles = Math.min(particles, 5)
+
+  for (let i = 0; i < particles; i++) {
+    createSandParticle(intensity)
+  }
+}
+
+const moveRotation = (event) => {
+  if (!isDragging) return
+
+  const currentTime = performance.now()
+  const currentAngle = getPointerAngle(event, event.currentTarget)
+
+  let angleDifference = currentAngle - lastPointerAngle
+
+  if (angleDifference > 180) {
+    angleDifference -= 360
+  }
+
+  if (angleDifference < -180) {
+    angleDifference += 360
+  }
+
+  const deltaTime = currentTime - lastTime
+
+  rotation.value += angleDifference
+
+  if (deltaTime > 0) {
+    const currentVelocity = (angleDifference / deltaTime) * 3
+
+    angularVelocity =
+      angularVelocity * 0.6 +
+      currentVelocity * 0.4
+
+    emitSand(deltaTime)
+  }
+
+  lastPointerAngle = currentAngle
+  lastTime = currentTime
+}
+
+const startInertia = () => {
+  let previousTime = performance.now()
+
+  const animate = (currentTime) => {
+    const deltaTime = currentTime - previousTime
+    previousTime = currentTime
+
+    rotation.value += angularVelocity * deltaTime
+
+    emitSand(deltaTime)
+
+    angularVelocity *= Math.pow(
+      0.985,
+      deltaTime / 16.67,
+    )
+
+    if (Math.abs(angularVelocity) < 0.001) {
+      animationFrame = null
+      return
+    }
+
+    animationFrame = requestAnimationFrame(animate)
+  }
+
+  animationFrame = requestAnimationFrame(animate)
+}
+
+const endRotation = () => {
+  if (!isDragging) return
+
+  isDragging = false
+  startInertia()
+}
+
 const scrollToProjects = () => {
   document.querySelector('#projects')?.scrollIntoView({
     behavior: 'smooth',
     block: 'start',
   })
 }
+
+onBeforeUnmount(() => {
+  stopInertia()
+})
 </script>
 
 <style lang="stylus" scoped>
@@ -164,19 +390,37 @@ const scrollToProjects = () => {
           background-color rgba(241, 242, 246, 1)
           border 0.185vh solid rgba(53, 52, 54, 1)
 
-    &-image
-      width 23.958vw
-      aspect-ratio 1 / 1
-      flex-shrink 0
-      background-image url('../../assets/images/header/plate.png')
-      background-position center
-      background-size contain
-      background-repeat no-repeat
-      position relative
-      z-index 1
+  &__content-image-wrapper
+    width 23.958vw
+    aspect-ratio 1 / 1
+    flex-shrink 0
+    position relative
+    z-index 1
 
-      @media(platform: mobile)
-        width 38vw
+  &__content-image
+    width 100%
+    height 100%
+    background-image url('../../assets/images/header/plate.png')
+    background-position center
+    background-size contain
+    background-repeat no-repeat
+    cursor grab
+    user-select none
+    touch-action none
+    transform-origin center
+    will-change transform
+
+    &:active
+      cursor grabbing
+
+  &__sand
+    position absolute
+    inset 0
+    width 100%
+    height 100%
+    pointer-events none
+    overflow visible
+    z-index 2
 
   &__button-left
     display flex

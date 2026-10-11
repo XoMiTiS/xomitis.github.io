@@ -207,12 +207,35 @@ const closeFeedbackModal = () => {
   document.body.style.overflow = ''
 }
 
-const sendFeedback = () => {
-  console.log({
-    name: feedbackForm.name,
-    contact: feedbackForm.contact,
-    message: feedbackForm.message,
-  })
+const sendFeedback = async () => {
+  try {
+    const response = await fetch(
+      'https://portfolio-feedback.a08926443.workers.dev',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: feedbackForm.name,
+          contact: feedbackForm.contact,
+          message: feedbackForm.message,
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      throw new Error('Ошибка отправки')
+    }
+
+    feedbackForm.name = ''
+    feedbackForm.contact = ''
+    feedbackForm.message = ''
+
+    closeFeedbackModal()
+  } catch (error) {
+    console.error('Ошибка отправки:', error)
+  }
 }
 
 const handleKeydown = (event) => {
