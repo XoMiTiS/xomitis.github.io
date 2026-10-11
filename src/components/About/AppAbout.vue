@@ -6,7 +6,7 @@
       .app-about__content-text
         .app-about__content-title !{'Здравствуйте, Я<br> Никита Неранов.'}
         .app-about__content-description !{'Frontend-разработчик, интересующийся UI/UX и<br> визуальной стороной веб-разработки.'}
-        .app-about__content-button.unselectable(@click="openAboutModal")
+        .app-about__content-button.unselectable(@click="openAboutModal($event)")
           .app-about__button-text Больше обо мне
           ArrowIcon.app-about__button-arrow
       .app-about__content-image
@@ -67,9 +67,10 @@
     Teleport(to="body")
       .about-modal(
         v-if="aboutModalOpen && !isMobile"
+        ref="aboutOverlay"
         @click="closeAboutModal"
       )
-        .about-modal__content(@click.stop)
+        .about-modal__content(ref="aboutWindow" @click.stop)
           .about-modal__header
             .about-modal__label Обо мне
             .about-modal__close.unselectable(@click="closeAboutModal")
@@ -121,7 +122,7 @@
 
 </template>
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import ArrowIcon from '@/components/icons/Arrow.vue'
 
 defineProps({
@@ -163,15 +164,173 @@ const skillsMobile = [
 ]
 
 const aboutModalOpen = ref(false)
+const aboutWindow = ref(null)
 
-const openAboutModal = () => {
+const aboutOverlay = ref(null)
+
+let aboutOverlayAnimation = null
+
+let aboutSourceRect = null
+let aboutAnimation = null
+
+const openAboutModal = async (event) => {
+  aboutSourceRect = event.currentTarget.getBoundingClientRect()
+
   aboutModalOpen.value = true
   document.body.style.overflow = 'hidden'
+
+  await nextTick()
+
+  const modal = aboutWindow.value
+  const overlay = aboutOverlay.value
+
+  if (!modal || !overlay) return
+
+  const modalRect = modal.getBoundingClientRect()
+
+  const sourceCenterX =
+    aboutSourceRect.left + aboutSourceRect.width / 2
+
+  const sourceCenterY =
+    aboutSourceRect.top + aboutSourceRect.height / 2
+
+  const modalCenterX =
+    modalRect.left + modalRect.width / 2
+
+  const modalCenterY =
+    modalRect.top + modalRect.height / 2
+
+  const translateX = sourceCenterX - modalCenterX
+  const translateY = sourceCenterY - modalCenterY
+
+  const scaleX =
+    aboutSourceRect.width / modalRect.width
+
+  const scaleY =
+    aboutSourceRect.height / modalRect.height
+
+  aboutAnimation?.cancel()
+  aboutOverlayAnimation?.cancel()
+
+  aboutAnimation = modal.animate(
+    [
+      {
+        transform: `translate(${translateX}px, ${translateY}px) scale(${scaleX}, ${scaleY})`,
+        opacity: 0,
+      },
+      {
+        transform: 'translate(0, 0) scale(1, 1)',
+        opacity: 1,
+      },
+    ],
+    {
+      duration: 350,
+      easing: 'cubic-bezier(.16, 1, .3, 1)',
+      fill: 'forwards',
+    },
+  )
+
+  aboutOverlayAnimation = overlay.animate(
+    [
+      {
+        opacity: 0,
+      },
+      {
+        opacity: 1,
+      },
+    ],
+    {
+      duration: 350,
+      easing: 'ease-out',
+      fill: 'forwards',
+    },
+  )
 }
 
-const closeAboutModal = () => {
+const overlay = aboutOverlay.value
+
+const closeAboutModal = async () => {
+  const modal = aboutWindow.value
+  const overlay = aboutOverlay.value
+
+  if (!modal || !overlay || !aboutSourceRect) {
+    aboutModalOpen.value = false
+    document.body.style.overflow = ''
+    return
+  }
+
+  const modalRect = modal.getBoundingClientRect()
+
+  const sourceCenterX =
+    aboutSourceRect.left + aboutSourceRect.width / 2
+
+  const sourceCenterY =
+    aboutSourceRect.top + aboutSourceRect.height / 2
+
+  const modalCenterX =
+    modalRect.left + modalRect.width / 2
+
+  const modalCenterY =
+    modalRect.top + modalRect.height / 2
+
+  const translateX = sourceCenterX - modalCenterX
+  const translateY = sourceCenterY - modalCenterY
+
+  const scaleX =
+    aboutSourceRect.width / modalRect.width
+
+  const scaleY =
+    aboutSourceRect.height / modalRect.height
+
+  aboutAnimation?.cancel()
+  aboutOverlayAnimation?.cancel()
+
+  aboutAnimation = modal.animate(
+    [
+      {
+        transform: 'translate(0, 0) scale(1, 1)',
+        opacity: 1,
+      },
+      {
+        transform: `translate(${translateX}px, ${translateY}px) scale(${scaleX}, ${scaleY})`,
+        opacity: 0,
+      },
+    ],
+    {
+      duration: 350,
+      easing: 'cubic-bezier(.7, 0, .84, 0)',
+      fill: 'forwards',
+    },
+  )
+
+  aboutOverlayAnimation?.cancel()
+
+  aboutOverlayAnimation = overlay.animate(
+    [
+      {
+        opacity: 1,
+      },
+      {
+        opacity: 0,
+      },
+    ],
+    {
+      duration: 350,
+      easing: 'ease-in',
+      fill: 'forwards',
+    },
+  )
+
+  await Promise.all([
+    aboutAnimation.finished.catch(() => {}),
+    aboutOverlayAnimation.finished.catch(() => {}),
+  ])
+
   aboutModalOpen.value = false
   document.body.style.overflow = ''
+
+  aboutAnimation = null
+  aboutOverlayAnimation = null
 }
 
 const handleKeydown = (event) => {
@@ -407,6 +566,9 @@ onBeforeUnmount(() => {
     border .052vw solid rgba(255, 255, 255, .15)
     padding 3vh 3vw
     box-sizing border-box
+    overflow hidden
+    transform-origin center
+    will-change transform, opacity
 
   &__header
     display flex
