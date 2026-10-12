@@ -100,4 +100,5 @@ const tools = [
   &__item-icon
     width .781vw
     margin-right .26vw
+    user-select none
 </style>
