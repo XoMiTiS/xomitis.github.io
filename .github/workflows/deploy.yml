@@ -30,11 +30,50 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Install dependencies
+      - name: Install portfolio dependencies
         run: npm ci
 
-      - name: Build
+      - name: Build portfolio
         run: npm run build
+
+      - name: Install Forma dependencies
+        working-directory: projects/forma
+        run: npm ci
+
+      - name: Build Forma
+        working-directory: projects/forma
+        run: npm run build
+
+      - name: Add Forma
+        run: |
+          mkdir -p dist/forma
+          cp -r projects/forma/dist/. dist/forma/
+
+      - name: Install Pulse dependencies
+        working-directory: projects/pulse
+        run: npm ci
+
+      - name: Build Pulse
+        working-directory: projects/pulse
+        run: npm run build
+
+      - name: Add Pulse
+        run: |
+          mkdir -p dist/pulse
+          cp -r projects/pulse/dist/. dist/pulse/
+
+      - name: Install Zerna dependencies
+        working-directory: projects/zerna
+        run: npm ci
+
+      - name: Build Zerna
+        working-directory: projects/zerna
+        run: npm run build
+
+      - name: Add Zerna
+        run: |
+          mkdir -p dist/zerna
+          cp -r projects/zerna/dist/. dist/zerna/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
