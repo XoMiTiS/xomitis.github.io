@@ -1,12 +1,14 @@
 <template lang="pug">
   .app-projects#projects
-
     .app-projects__header
       .app-projects__header-container
         .app-projects__header-title Мои Работы
         .app-projects__header-counter
           | {{ counterLabel }}
-      .app-projects__header-button.unselectable(v-if="!isMobile && projects.length > 3" @click="")
+      .app-projects__header-button.unselectable(
+        v-if="!isMobile && projects.length > 3"
+        @click=""
+      )
         .app-projects__header-button_text Посмотреть все проекты
         ArrowIcon.app-projects__header-button_arrow
 
@@ -17,7 +19,7 @@
         @click="openProject(project, $event)"
       )
         .app-projects__item-media(
-          :style="{backgroundColor: project.color, backgroundImage: `url(${project.image})`, backgroundSize: `${project.width} auto`}"
+          :style="{ backgroundColor: project.color, backgroundImage: `url(${project.image})`, backgroundSize: `${project.width} auto` }"
         )
           img.app-projects__item-decor(
             v-for="decor in project.decorations"
@@ -26,15 +28,23 @@
             :class="`app-projects__item-decor_${decor.position}`"
             alt=""
           )
+
         .app-projects__item-title
           span {{ project.title }}
-
           .app-projects__item-index {{ formatIndex(index) }}
+
         .app-projects__item-description
           span {{ project.description }}
-          ArrowIcon.app-projects__item-arrow(v-if="isMobile" @click="")
+          ArrowIcon.app-projects__item-arrow(
+            v-if="isMobile"
+            @click=""
+          )
+
         .app-projects__item-container
-          ArrowIcon.app-projects__item-arrow(v-if="!isMobile" @click="")
+          ArrowIcon.app-projects__item-arrow(
+            v-if="!isMobile"
+            @click=""
+          )
 
     Teleport(to="body")
       .project-modal(
@@ -51,9 +61,19 @@
         .project-modal__content(
           @click.stop
         )
-          .project-modal__title(
-            v-if="selectedProject"
-          ) {{ selectedProject.title }}
+          .project-modal__header
+            .project-modal__title(
+              v-if="selectedProject"
+            ) {{ selectedProject.title }}
+
+            a.project-modal__site-button.unselectable(
+              v-if="selectedProject?.url"
+              :href="selectedProject.url"
+              target="_blank"
+              rel="noopener noreferrer"
+            )
+              span Открыть сайт
+              ArrowIcon.project-modal__site-button_arrow
 
           .project-modal__images
             img.project-modal__image(
@@ -64,7 +84,6 @@
               v-show="selectedProject?.id === project.id"
               loading="eager"
             )
-
 </template>
 
 <script setup>
@@ -97,6 +116,7 @@ const projects = [
     description: 'Архитектурное бюро.',
     image: FormaImage,
     preview: FormaSiteImage,
+    url: 'https://xomitis.github.io/forma/',
     color: '#E9E6E0',
     width: '80%',
     decorations: [
@@ -463,7 +483,7 @@ const counterLabel = computed(() => `${pad(1)} — ${pad(projects.length)}`)
     cursor pointer
 
     @media (platform: mobile)
-      border-radius 0.521vw
+      border-radius .521vw
       aspect-ratio 2 / 1
 
   &__item-decor
@@ -540,7 +560,7 @@ const counterLabel = computed(() => `${pad(1)} — ${pad(projects.length)}`)
 
     @media (platform: mobile)
       font-size 3.6vw
-      margin-top 0.8vh
+      margin-top .8vh
 
   &__item-index
     color rgba(55, 56, 57, 0.5)
@@ -555,7 +575,7 @@ const counterLabel = computed(() => `${pad(1)} — ${pad(projects.length)}`)
 
     @media (platform: mobile)
       font-size 3vw
-      margin 0.521vw 0 1.042vw 0
+      margin .521vw 0 1.042vw 0
       display flex
       justify-content space-between
       align-items center
@@ -592,9 +612,6 @@ const counterLabel = computed(() => `${pad(1)} — ${pad(projects.length)}`)
   transform-origin center
   will-change transform, opacity
 
-  &__images
-    width 100%
-
   &__close
     padding 1.389vh 1.25vw
     border-radius 1.927vw
@@ -609,7 +626,7 @@ const counterLabel = computed(() => `${pad(1)} — ${pad(projects.length)}`)
     border .104vw solid rgba(134, 136, 136, 1)
     width fit-content
     cursor pointer
-    transition all 0.15s ease
+    transition all .15s ease
     position absolute
     top 2vh
     right 2vw
@@ -621,10 +638,10 @@ const counterLabel = computed(() => `${pad(1)} — ${pad(projects.length)}`)
         border .104vw solid rgba(15, 15, 15, 1)
 
     &:active
-      transform scale(0.98)
+      transform scale(.98)
       color rgba(15, 15, 15, 1)
       background-color rgba(241, 242, 246, 1)
-      border 0.185vh solid rgba(53, 52, 54, 1)
+      border .185vh solid rgba(53, 52, 54, 1)
 
   &__close-icon
     font-size 1.3vw
@@ -635,13 +652,49 @@ const counterLabel = computed(() => `${pad(1)} — ${pad(projects.length)}`)
     width 75vw
     margin 0 auto
 
-  &__title
+  &__header
+    width 100%
+    display flex
+    justify-content space-between
+    align-items center
     margin-bottom 2vh
+
+  &__title
     font-family "Open Sans"
     font-weight 600
     font-size 2.5vw
     letter-spacing -0.06em
     color white
+
+  &__site-button
+    padding 1.389vh 1.25vw
+    border-radius 1.927vw
+    display flex
+    justify-content center
+    align-items center
+    font-family "Open Sans"
+    font-weight 600
+    font-size .781vw
+    color rgba(15, 15, 15, 1)
+    background-color rgba(241, 242, 246, 1)
+    text-decoration none
+    cursor pointer
+    transition all .15s ease
+
+    &:hover
+      @media(platform: desktop)
+        background-color rgba(210, 212, 212, 1)
+
+    &:active
+      transform scale(.98)
+
+    &_arrow
+      width .99vw
+      height auto
+      margin-left .781vw
+
+  &__images
+    width 100%
 
   &__image
     display block
@@ -657,8 +710,9 @@ const counterLabel = computed(() => `${pad(1)} — ${pad(projects.length)}`)
       width 100%
       font-size 4.4vw
       border-radius 0
-      border 0.185vh solid rgba(134, 136, 136, 1)
+      border .185vh solid rgba(134, 136, 136, 1)
       padding 1.2vh 4vw
+      box-sizing border-box
 
     &__close-icon
       font-size 5vw
@@ -667,10 +721,27 @@ const counterLabel = computed(() => `${pad(1)} — ${pad(projects.length)}`)
     &__content
       width 100%
 
-    &__title
+    &__header
+      width 100%
       margin-top 2vh
       margin-bottom 2vh
+      flex-direction column
+      align-items flex-start
+
+    &__title
       font-size 6vw
+
+    &__site-button
+      width 100%
+      margin-top 2vh
+      padding 1.2vh 4vw
+      box-sizing border-box
+      border-radius 0
+      font-size 4vw
+
+      &_arrow
+        width 3.6vw
+        margin-left 3vw
 
     &__image
       width 100%
