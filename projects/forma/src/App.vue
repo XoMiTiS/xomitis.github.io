@@ -714,6 +714,9 @@ onBeforeUnmount(() => {
   overflow hidden
   background-color #F3F1EC
   color #282725
+  -webkit-user-select none
+  user-select none
+  -webkit-tap-highlight-color transparent
 
   &.is-loaded
     .app-header
@@ -746,6 +749,9 @@ onBeforeUnmount(() => {
   align-items center
   background-color #F3F1EC
   color #282725
+  -webkit-user-select none
+  user-select none
+  -webkit-tap-highlight-color transparent
 
   &__logo
     min-width 12vw
@@ -788,6 +794,9 @@ onBeforeUnmount(() => {
   font-family 'Open Sans', sans-serif
   opacity 0
   transform translateY(-2vh)
+  -webkit-user-select none
+  user-select none
+  -webkit-tap-highlight-color transparent
 
   &__logo
     display flex
@@ -821,6 +830,9 @@ onBeforeUnmount(() => {
   overflow hidden
   display flex
   align-items center
+  -webkit-user-select none
+  user-select none
+  -webkit-tap-highlight-color transparent
 
   &__background
     position absolute
@@ -917,6 +929,9 @@ onBeforeUnmount(() => {
   padding 5vh 6.25vw 6vh 6.25vw
   box-sizing border-box
   background-color #F3F1EC
+  -webkit-user-select none
+  user-select none
+  -webkit-tap-highlight-color transparent
 
   &__header
     display flex
@@ -1073,6 +1088,9 @@ onBeforeUnmount(() => {
   grid-template-columns 55% 45%
   background-color #F3F1EC
   overflow hidden
+  -webkit-user-select none
+  user-select none
+  -webkit-tap-highlight-color transparent
 
   &__image
     width 100%
@@ -1195,6 +1213,9 @@ onBeforeUnmount(() => {
   align-items center
   text-align center
   background-color #F3F1EC
+  -webkit-user-select none
+  user-select none
+  -webkit-tap-highlight-color transparent
 
   &__label
     font-family Inter
@@ -1281,6 +1302,9 @@ onBeforeUnmount(() => {
   background-color #242426
   color rgba(255, 255, 255, .75)
   font-family 'Open Sans', sans-serif
+  -webkit-user-select none
+  user-select none
+  -webkit-tap-highlight-color transparent
 
   &__top
     width 100%
@@ -1407,6 +1431,9 @@ onBeforeUnmount(() => {
   background-color #F3F1EC
   color #282725
   will-change clip-path, opacity
+  -webkit-user-select none
+  user-select none
+  -webkit-tap-highlight-color transparent
 
   &__header
     width 100%
@@ -1551,6 +1578,9 @@ onBeforeUnmount(() => {
   justify-content center
   align-items center
   background-color rgba(20, 20, 20, .72)
+  -webkit-user-select none
+  user-select none
+  -webkit-tap-highlight-color transparent
 
   &__window
     width 45vw

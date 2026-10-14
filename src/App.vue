@@ -6,15 +6,16 @@ import AppAbout from '@/components/About/AppAbout.vue'
 import AppSkills from '@/components/Skills/AppSkills.vue'
 import AppContacts from '@/components/Contacts/AppContacts.vue'
 import { useMedia } from '@/composables/useMedia'
-
-const { isMobile } = useMedia()
-
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import FormaPreview from '@/assets/images/projects/forma/forma_preview.png'
 import PulsePreview from '@/assets/images/projects/pulse/pulse_preview.png'
 import ZernaPreview from '@/assets/images/projects/zerna/zerna_preview.png'
 
+const { isMobile } = useMedia()
+
 const isLoading = ref(true)
+const siteLoaded = ref(false)
+
 const loaderFirstName = 'Nikita'.split('')
 const loaderLastName = 'Neranov'.split('')
 
@@ -23,6 +24,25 @@ const visibleLastName = ref(loaderLastName.length)
 
 let loaderDirection = -1
 let loaderTimer = null
+let revealObserver = null
+
+const projectsComponent = ref(null)
+const aboutComponent = ref(null)
+const skillsComponent = ref(null)
+const contactsComponent = ref(null)
+
+const projectsVisible = ref(false)
+const aboutVisible = ref(false)
+const skillsVisible = ref(false)
+const contactsVisible = ref(false)
+
+const revealTargets = new Map()
+
+const wait = (time) => {
+  return new Promise((resolve) => {
+    setTimeout(resolve, time)
+  })
+}
 
 const animateLoaderName = () => {
   const isFull =
@@ -47,12 +67,18 @@ const animateLoaderName = () => {
 
     visibleFirstName.value = Math.max(
       1,
-      Math.min(loaderFirstName.length, visibleFirstName.value),
+      Math.min(
+        loaderFirstName.length,
+        visibleFirstName.value,
+      ),
     )
 
     visibleLastName.value = Math.max(
       1,
-      Math.min(loaderLastName.length, visibleLastName.value),
+      Math.min(
+        loaderLastName.length,
+        visibleLastName.value,
+      ),
     )
 
     animateLoaderName()
@@ -68,13 +94,41 @@ const preloadImages = [
 const preloadImage = (src) => {
   return new Promise((resolve) => {
     const image = new Image()
+    let finished = false
 
-    image.onload = resolve
-    image.onerror = resolve
+    const finish = async () => {
+      if (finished) {
+        return
+      }
+
+      finished = true
+
+      try {
+        if (image.decode) {
+          await image.decode()
+        }
+      } catch (error) {
+      }
+
+      resolve()
+    }
+
+    const fail = () => {
+      if (finished) {
+        return
+      }
+
+      finished = true
+      resolve()
+    }
+
+    image.onload = finish
+    image.onerror = fail
+    image.decoding = 'async'
     image.src = src
 
-    if (image.complete) {
-      resolve()
+    if (image.complete && image.naturalWidth > 0) {
+      finish()
     }
   })
 }
@@ -86,33 +140,144 @@ const waitForPageLoad = () => {
       return
     }
 
-    window.addEventListener('load', resolve, { once: true })
+    window.addEventListener(
+      'load',
+      resolve,
+      {
+        once: true,
+      },
+    )
+  })
+}
+
+const waitForFonts = async () => {
+  if (!document.fonts) {
+    return
+  }
+
+  try {
+    await document.fonts.ready
+  } catch (error) {
+  }
+}
+
+const getComponentElement = (componentRef) => {
+  if (!componentRef.value) {
+    return null
+  }
+
+  return componentRef.value.$el || null
+}
+
+const observeComponent = (componentRef, callback) => {
+  const element = getComponentElement(componentRef)
+
+  if (!element || !revealObserver) {
+    return
+  }
+
+  revealTargets.set(element, callback)
+  revealObserver.observe(element)
+}
+
+const setupRevealObserver = () => {
+  revealObserver?.disconnect()
+  revealTargets.clear()
+
+  revealObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) {
+          return
+        }
+
+        const callback = revealTargets.get(entry.target)
+
+        if (callback) {
+          callback()
+        }
+
+        revealObserver.unobserve(entry.target)
+        revealTargets.delete(entry.target)
+      })
+    },
+    {
+      threshold: 0.14,
+      rootMargin: '0px 0px -8% 0px',
+    },
+  )
+
+  observeComponent(
+    projectsComponent,
+    () => {
+      projectsVisible.value = true
+    },
+  )
+
+  observeComponent(
+    aboutComponent,
+    () => {
+      aboutVisible.value = true
+    },
+  )
+
+  if (!isMobile.value) {
+    observeComponent(
+      skillsComponent,
+      () => {
+        skillsVisible.value = true
+      },
+    )
+  }
+
+  observeComponent(
+    contactsComponent,
+    () => {
+      contactsVisible.value = true
+    },
+  )
+}
+
+const onLoaderAfterLeave = () => {
+  clearTimeout(loaderTimer)
+  siteLoaded.value = true
+  document.body.style.overflow = ''
+
+  requestAnimationFrame(() => {
+    setupRevealObserver()
   })
 }
 
 onMounted(async () => {
   animateLoaderName()
-
   document.body.style.overflow = 'hidden'
 
   await Promise.all([
     waitForPageLoad(),
+    waitForFonts(),
     ...preloadImages.map(preloadImage),
+    wait(900),
   ])
 
   isLoading.value = false
-  document.body.style.overflow = ''
 })
 
 onBeforeUnmount(() => {
   clearTimeout(loaderTimer)
+  revealObserver?.disconnect()
+  revealTargets.clear()
   document.body.style.overflow = ''
 })
 </script>
 
 <template lang="pug">
-  .app
-    Transition(name="loader")
+  .app(
+    :class="{ 'app_loaded': siteLoaded }"
+  )
+    Transition(
+      name="loader"
+      @after-leave="onLoaderAfterLeave"
+    )
       .app__loader(v-if="isLoading")
         .app__loader-logo
           .app__loader-word
@@ -132,15 +297,44 @@ onBeforeUnmount(() => {
               :key="`surname-${index}`"
               :class="{ 'app__loader-letter_hidden': index >= visibleLastName }"
             ) {{ letter }}
+
         .app__loader-line
           .app__loader-line_progress
+
     .app__content
-      AppHeader.app__header(:isMobile="isMobile")
-      AppCalendar.app__calendar(v-if="!isMobile")
-      AppProjects.app__projects(:isMobile="isMobile")
-      AppAbout.app__about(:isMobile="isMobile")
-      AppSkills.app__skills(v-if="!isMobile")
-      AppContacts.app__contacts(:isMobile="isMobile")
+      AppHeader.app__header(
+        :class="{ 'is-visible': siteLoaded }"
+        :isMobile="isMobile"
+      )
+
+      AppCalendar.app__calendar(
+        v-if="!isMobile"
+        :class="{ 'is-visible': siteLoaded }"
+      )
+
+      AppProjects.app__projects(
+        ref="projectsComponent"
+        :class="{ 'is-visible': projectsVisible }"
+        :isMobile="isMobile"
+      )
+
+      AppAbout.app__about(
+        ref="aboutComponent"
+        :class="{ 'is-visible': aboutVisible }"
+        :isMobile="isMobile"
+      )
+
+      AppSkills.app__skills(
+        v-if="!isMobile"
+        ref="skillsComponent"
+        :class="{ 'is-visible': skillsVisible }"
+      )
+
+      AppContacts.app__contacts(
+        ref="contactsComponent"
+        :class="{ 'is-visible': contactsVisible }"
+        :isMobile="isMobile"
+      )
 </template>
 
 <style lang="stylus" scoped>
@@ -159,6 +353,14 @@ onBeforeUnmount(() => {
     grid-row 1
     width 100%
     min-width 0
+    opacity 0
+    transform translateX(-4vw)
+    transition opacity .9s ease, transform 1s cubic-bezier(.16, 1, .3, 1)
+    will-change opacity, transform
+
+    &.is-visible
+      opacity 1
+      transform translateX(0)
 
   &__calendar
     grid-column 18 / 21
@@ -166,18 +368,42 @@ onBeforeUnmount(() => {
     width 100%
     min-width 0
     height 100%
+    opacity 0
+    transform translateY(-5vh)
+    transition opacity .9s ease .15s, transform 1s cubic-bezier(.16, 1, .3, 1) .15s
+    will-change opacity, transform
+
+    &.is-visible
+      opacity 1
+      transform translateY(0)
 
   &__projects
     grid-column 1 / 18
     grid-row 2
     width 100%
     min-width 0
+    opacity 0
+    transform translateY(5vh)
+    transition opacity .9s ease, transform .9s cubic-bezier(.16, 1, .3, 1)
+    will-change opacity, transform
+
+    &.is-visible
+      opacity 1
+      transform translateY(0)
 
   &__about
     grid-column 1 / 15
     grid-row 3
     width 100%
     min-width 0
+    opacity 0
+    transform translateX(-2.5vw) translateY(3vh)
+    transition opacity .9s ease, transform 1s cubic-bezier(.16, 1, .3, 1)
+    will-change opacity, transform
+
+    &.is-visible
+      opacity 1
+      transform translateX(0) translateY(0)
 
   &__skills
     grid-column 15 / 21
@@ -187,6 +413,14 @@ onBeforeUnmount(() => {
     position relative
     z-index 2
     height 110%
+    opacity 0
+    transform translateX(2.5vw) translateY(3vh)
+    transition opacity .9s ease .12s, transform 1s cubic-bezier(.16, 1, .3, 1) .12s
+    will-change opacity, transform
+
+    &.is-visible
+      opacity 1
+      transform translateX(0) translateY(0)
 
   &__contacts
     grid-column 1 / 21
@@ -195,6 +429,14 @@ onBeforeUnmount(() => {
     min-width 0
     position relative
     z-index 1
+    opacity 0
+    transform translateY(5vh)
+    transition opacity .9s ease, transform 1s cubic-bezier(.16, 1, .3, 1)
+    will-change opacity, transform
+
+    &.is-visible
+      opacity 1
+      transform translateY(0)
 
 @media (platform: mobile)
   .app
@@ -204,18 +446,34 @@ onBeforeUnmount(() => {
     &__header
       width 100%
       min-height 100svh
+      transform translateY(-2vh)
+
+      &.is-visible
+        transform translateY(0)
 
     &__projects
       width 100%
       min-height 100svh
+      transform translateY(3vh)
+
+      &.is-visible
+        transform translateY(0)
 
     &__about
       width 100%
       min-height 100svh
+      transform translateY(3vh)
+
+      &.is-visible
+        transform translateY(0)
 
     &__contacts
       width 100%
       min-height 100svh
+      transform translateY(3vh)
+
+      &.is-visible
+        transform translateY(0)
 
 .app__loader
   position fixed
@@ -288,7 +546,7 @@ onBeforeUnmount(() => {
     animation loading-line 2.4s ease-in-out infinite
 
 .loader-leave-active
-  transition opacity .4s ease
+  transition opacity .55s ease
 
 .loader-leave-to
   opacity 0
