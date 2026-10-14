@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import HeaderImage from './assets/header_bg.png'
 import HouseMountainsImage from './assets/forma-house-mountains.png'
 import HousePinesWaterImage from './assets/forma-pines-water.png'
@@ -12,6 +12,19 @@ const { isMobile } = useMedia()
 
 const projectsModalOpen = ref(false)
 const contactsModalOpen = ref(false)
+
+const heroSection = ref(null)
+const projectsSection = ref(null)
+const studioSection = ref(null)
+const ctaSection = ref(null)
+
+const heroOffset = ref(0)
+const projectsVisible = ref(false)
+const studioVisible = ref(false)
+const ctaVisible = ref(false)
+
+let revealObserver = null
+let scrollFrame = null
 
 const scrollToProjects = () => {
   document.querySelector('#projects')?.scrollIntoView({
@@ -49,7 +62,6 @@ const openProjectsModal = () => {
 
 const closeProjectsModal = () => {
   projectsModalOpen.value = false
-  unlockPage()
 }
 
 const openContactsModal = () => {
@@ -59,12 +71,12 @@ const openContactsModal = () => {
 
 const closeContactsModal = () => {
   contactsModalOpen.value = false
-  unlockPage()
 }
 
-const heroStyle = {
+const heroBackgroundStyle = computed(() => ({
   backgroundImage: `url(${HeaderImage})`,
-}
+  '--hero-offset': `${heroOffset.value}px`,
+}))
 
 const studioStyle = {
   backgroundImage: `url(${StudioImage})`,
@@ -96,6 +108,109 @@ const projects = [
     className: 'small',
   },
 ]
+
+const updateHeroParallax = () => {
+  if (isMobile.value || !heroSection.value) {
+    heroOffset.value = 0
+    return
+  }
+
+  const rect = heroSection.value.getBoundingClientRect()
+
+  if (rect.bottom < 0 || rect.top > window.innerHeight) {
+    return
+  }
+
+  heroOffset.value = Math.min(
+    60,
+    Math.max(0, -rect.top * 0.12),
+  )
+}
+
+const onScroll = () => {
+  if (scrollFrame) {
+    cancelAnimationFrame(scrollFrame)
+  }
+
+  scrollFrame = requestAnimationFrame(() => {
+    updateHeroParallax()
+  })
+}
+
+const onKeydown = (event) => {
+  if (event.key !== 'Escape') {
+    return
+  }
+
+  if (projectsModalOpen.value) {
+    closeProjectsModal()
+  }
+
+  if (contactsModalOpen.value) {
+    closeContactsModal()
+  }
+}
+
+onMounted(() => {
+  revealObserver = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) {
+          return
+        }
+
+        if (entry.target === projectsSection.value) {
+          projectsVisible.value = true
+        }
+
+        if (entry.target === studioSection.value) {
+          studioVisible.value = true
+        }
+
+        if (entry.target === ctaSection.value) {
+          ctaVisible.value = true
+        }
+
+        revealObserver.unobserve(entry.target)
+      })
+    },
+    {
+      threshold: 0.18,
+    },
+  )
+
+  if (projectsSection.value) {
+    revealObserver.observe(projectsSection.value)
+  }
+
+  if (studioSection.value) {
+    revealObserver.observe(studioSection.value)
+  }
+
+  if (ctaSection.value) {
+    revealObserver.observe(ctaSection.value)
+  }
+
+  window.addEventListener('scroll', onScroll, {
+    passive: true,
+  })
+
+  window.addEventListener('keydown', onKeydown)
+
+  updateHeroParallax()
+})
+
+onBeforeUnmount(() => {
+  revealObserver?.disconnect()
+  window.removeEventListener('scroll', onScroll)
+  window.removeEventListener('keydown', onKeydown)
+
+  if (scrollFrame) {
+    cancelAnimationFrame(scrollFrame)
+  }
+
+  unlockPage()
+})
 </script>
 
 <template lang="pug">
@@ -110,7 +225,13 @@ const projects = [
         .app-header__nav-item(@click="openContactsModal") Контакты
 
     main
-      section.app-hero(:style="heroStyle")
+      section.app-hero(
+        ref="heroSection"
+      )
+        .app-hero__background(
+          :style="heroBackgroundStyle"
+        )
+
         .app-hero__content
           .app-hero__label
             span Пространства
@@ -129,7 +250,10 @@ const projects = [
             span Смотреть проекты
             ArrowIcon.app-hero__button-arrow
 
-      section.app-projects#projects
+      section.app-projects#projects(
+        ref="projectsSection"
+        :class="{ 'is-visible': projectsVisible }"
+      )
         .app-projects__header
           .app-projects__label Избранные проекты
 
@@ -158,7 +282,10 @@ const projects = [
                   .app-projects__item-line
                   .app-projects__item-index {{ project.index }}
 
-      section.app-studio#studio
+      section.app-studio#studio(
+        ref="studioSection"
+        :class="{ 'is-visible': studioVisible }"
+      )
         .app-studio__image(:style="studioStyle")
 
         .app-studio__content
@@ -183,7 +310,10 @@ const projects = [
               .app-studio__stat-value 12
               .app-studio__stat-label Регионов России
 
-      section.app-cta
+      section.app-cta(
+        ref="ctaSection"
+        :class="{ 'is-visible': ctaVisible }"
+      )
         .app-cta__label Давайте знакомиться
         .app-cta__title Обсудим ваш проект?
         .app-cta__description Расскажите о своей идее. Начнём с разговора.
@@ -225,70 +355,86 @@ const projects = [
             ArrowIcon.app-footer__top-button_arrow
 
     Teleport(to="body")
-      .projects-modal(
-        v-if="projectsModalOpen"
-        @click.self="closeProjectsModal"
+      Transition(
+        name="projects-modal"
+        @after-leave="unlockPage"
       )
-        .projects-modal__header
-          .projects-modal__label Избранная архитектура
+        .projects-modal(
+          v-if="projectsModalOpen"
+          @click.self="closeProjectsModal"
+        )
+          .projects-modal__header
+            .projects-modal__label Избранная архитектура
 
-          .projects-modal__close.unselectable(@click="closeProjectsModal")
-            span Закрыть
-            span.projects-modal__close-icon ×
-
-        .projects-modal__content
-          .projects-modal__title Все проекты
-
-          .projects-modal__items
-            .projects-modal__item(
-              v-for="project in projects"
-              :key="project.id"
+            .projects-modal__close.unselectable(
+              @click="closeProjectsModal"
             )
-              img.projects-modal__item-image(
-                :src="project.image"
-                :alt="project.title"
-              )
+              span Закрыть
+              span.projects-modal__close-icon ×
 
-              .projects-modal__item-info
-                .projects-modal__item-left
-                  .projects-modal__item-title {{ project.title }}
-                .projects-modal__item-right
-                  .projects-modal__item-description {{ project.description }}
-                  .projects-modal__item-number
-                    .projects-modal__item-line
-                    .projects-modal__item-index {{ project.index }}
+          .projects-modal__content
+            .projects-modal__title Все проекты
+
+            .projects-modal__items
+              .projects-modal__item(
+                v-for="(project, index) in projects"
+                :key="project.id"
+                :style="{ '--project-delay': `${450 + index * 120}ms` }"
+              )
+                .projects-modal__item-media
+                  img.projects-modal__item-image(
+                    :src="project.image"
+                    :alt="project.title"
+                  )
+
+                .projects-modal__item-info
+                  .projects-modal__item-left
+                    .projects-modal__item-title {{ project.title }}
+
+                  .projects-modal__item-right
+                    .projects-modal__item-description {{ project.description }}
+
+                    .projects-modal__item-number
+                      .projects-modal__item-line
+                      .projects-modal__item-index {{ project.index }}
 
     Teleport(to="body")
-      .contacts-modal(
-        v-if="contactsModalOpen"
-        @click.self="closeContactsModal"
+      Transition(
+        name="contacts-modal"
+        @after-leave="unlockPage"
       )
-        .contacts-modal__window
-          .contacts-modal__top
-            .contacts-modal__label Связаться с нами
-            .contacts-modal__close.unselectable(@click="closeContactsModal") ×
+        .contacts-modal(
+          v-if="contactsModalOpen"
+          @click.self="closeContactsModal"
+        )
+          .contacts-modal__window
+            .contacts-modal__top
+              .contacts-modal__label Связаться с нами
+              .contacts-modal__close.unselectable(
+                @click="closeContactsModal"
+              ) ×
 
-          .contacts-modal__title
-            span Обсудим
-            span ваш проект
+            .contacts-modal__title
+              span Обсудим
+              span ваш проект
 
-          .contacts-modal__description
-            | Расскажите нам о своей идее, и мы обсудим,
-            br
-            | как можем помочь реализовать её.
+            .contacts-modal__description
+              | Расскажите нам о своей идее, и мы обсудим,
+              br
+              | как можем помочь реализовать её.
 
-          .contacts-modal__items
-            a.contacts-modal__item(href="mailto:hello@forma.studio")
-              .contacts-modal__item-label Почта
-              .contacts-modal__item-value hello@forma.studio
+            .contacts-modal__items
+              a.contacts-modal__item(href="mailto:hello@forma.studio")
+                .contacts-modal__item-label Почта
+                .contacts-modal__item-value hello@forma.studio
 
-            .contacts-modal__item
-              .contacts-modal__item-label Город
-              .contacts-modal__item-value Москва
+              .contacts-modal__item
+                .contacts-modal__item-label Город
+                .contacts-modal__item-value Москва
 
-          a.contacts-modal__button(href="mailto:hello@forma.studio")
-            span Написать нам
-            ArrowIcon.contacts-modal__button-arrow
+            a.contacts-modal__button(href="mailto:hello@forma.studio")
+              span Написать нам
+              ArrowIcon.contacts-modal__button-arrow
 </template>
 
 <style lang="stylus" scoped>
@@ -310,6 +456,7 @@ const projects = [
   left 0
   z-index 10
   font-family 'Open Sans', sans-serif
+  animation header-enter .8s cubic-bezier(.16, 1, .3, 1) .15s backwards
 
   &__logo
     display flex
@@ -340,11 +487,19 @@ const projects = [
   width 100%
   min-height 100vh
   position relative
-  background-size cover
-  background-position center
-  background-repeat no-repeat
+  overflow hidden
   display flex
   align-items center
+
+  &__background
+    position absolute
+    inset -3%
+    background-size cover
+    background-position center calc(50% + var(--hero-offset))
+    background-repeat no-repeat
+    transform scale(1.06)
+    animation hero-background-enter 1.6s cubic-bezier(.16, 1, .3, 1) backwards
+    will-change transform, background-position
 
   &__content
     width 40vw
@@ -362,8 +517,9 @@ const projects = [
     line-height 1.41
     letter-spacing 27%
     text-transform uppercase
-    color rgba(0, 2, 6, 0.5)
+    color rgba(0, 2, 6, .5)
     margin-bottom 2.5vh
+    animation hero-content-enter .7s cubic-bezier(.16, 1, .3, 1) .2s backwards
 
   &__title
     display flex
@@ -376,6 +532,7 @@ const projects = [
     letter-spacing -.2vw
     margin-bottom 3.981vh
     color rgba(38, 39, 39, 1)
+    animation hero-content-enter .9s cubic-bezier(.16, 1, .3, 1) .35s backwards
 
   &__description
     display flex
@@ -388,6 +545,7 @@ const projects = [
     line-height 1.3
     color #4F4F4F
     margin-bottom 4vh
+    animation hero-content-enter .8s cubic-bezier(.16, 1, .3, 1) .55s backwards
 
   &__button
     width fit-content
@@ -400,10 +558,15 @@ const projects = [
     font-size 1.458vw
     color #F4E8D8
     cursor pointer
-    transition background-color .2s ease, transform .2s ease
+    animation hero-button-enter .8s cubic-bezier(.16, 1, .3, 1) .7s backwards
+    transition background-color .2s ease, transform .3s cubic-bezier(.16, 1, .3, 1)
 
     &:hover
       background-color #925B3C
+
+      @media(platform: desktop)
+        .app-hero__button-arrow
+          transform translateX(.4vw)
 
     &:active
       transform scale(.97)
@@ -412,6 +575,7 @@ const projects = [
     margin-left 1.823vw
     width 2.083vw
     height 2.407vh
+    transition transform .3s cubic-bezier(.16, 1, .3, 1)
 
 .app-projects
   width 100%
@@ -424,6 +588,9 @@ const projects = [
     justify-content space-between
     align-items center
     margin-bottom 2.2vh
+    opacity 0
+    transform translateY(2vh)
+    transition opacity .7s ease, transform .7s cubic-bezier(.16, 1, .3, 1)
 
   &__label
     font-family Inter
@@ -448,8 +615,12 @@ const projects = [
       text-underline-offset .37vh
       text-decoration-thickness 1px
 
+      .app-projects__all-arrow
+        transform translateX(.3vw)
+
     &-arrow
       width 1vw
+      transition transform .3s cubic-bezier(.16, 1, .3, 1)
 
       @media(platform: mobile)
         width 3.5vw
@@ -465,6 +636,15 @@ const projects = [
   &__item
     width 100%
     min-width 0
+    opacity 0
+    transform translateY(4vh)
+    transition opacity .8s cubic-bezier(.16, 1, .3, 1), transform .8s cubic-bezier(.16, 1, .3, 1)
+
+    &:hover
+      @media(platform: desktop)
+        .app-projects__item-image
+          transform scale(1.025)
+          filter saturate(1.06)
 
   &__item_large
     grid-column 1
@@ -484,6 +664,10 @@ const projects = [
     background-size contain
     background-position center
     background-repeat no-repeat
+    transform scale(1)
+    filter saturate(1)
+    transition transform .8s cubic-bezier(.16, 1, .3, 1), filter .5s ease
+    will-change transform
 
   &__item-content
     display flex
@@ -520,10 +704,11 @@ const projects = [
     margin-top 1.481vh
 
   &__item-line
-    width 6.25vw
+    width 0
     height 2px
     margin-right 1vw
     background-color #C8C7C4
+    transition width .8s cubic-bezier(.16, 1, .3, 1)
 
     @media(platform: mobile)
       height 1px
@@ -532,14 +717,33 @@ const projects = [
     font-family Inter
     font-size 1.042vw
     font-weight 500
-    letter-spacing -13%
+    letter-spacing -6%
     color #C8C7C4
+
+  &.is-visible
+    .app-projects__header
+      opacity 1
+      transform translateY(0)
+
+    .app-projects__item
+      opacity 1
+      transform translateY(0)
+
+      &:nth-child(2)
+        transition-delay .12s
+
+      &:nth-child(3)
+        transition-delay .24s
+
+    .app-projects__item-line
+      width 6.25vw
 
 .app-studio
   width 100%
   display grid
   grid-template-columns 55% 45%
   background-color #F3F1EC
+  overflow hidden
 
   &__image
     width 100%
@@ -547,6 +751,10 @@ const projects = [
     background-size cover
     background-position center
     background-repeat no-repeat
+    clip-path inset(0 100% 0 0)
+    transform scale(1.04)
+    transition clip-path 1.1s cubic-bezier(.16, 1, .3, 1), transform 1.3s cubic-bezier(.16, 1, .3, 1)
+    will-change clip-path, transform
 
   &__content
     padding 3.611vh 6.146vw 3.611vh 3.698vw
@@ -564,6 +772,9 @@ const projects = [
     text-transform uppercase
     color #898989
     margin-bottom 3.981vh
+    opacity 0
+    transform translateY(2vh)
+    transition opacity .7s ease .25s, transform .7s cubic-bezier(.16, 1, .3, 1) .25s
 
   &__title
     font-family "Source Serif Pro"
@@ -572,6 +783,9 @@ const projects = [
     line-height 1.12
     margin-bottom 2.593vh
     text-align start
+    opacity 0
+    transform translateY(2.5vh)
+    transition opacity .8s ease .38s, transform .8s cubic-bezier(.16, 1, .3, 1) .38s
 
   &__description
     display flex
@@ -583,6 +797,9 @@ const projects = [
     letter-spacing -4%
     color #898989
     margin-bottom 3.704vh
+    opacity 0
+    transform translateY(2vh)
+    transition opacity .8s ease .5s, transform .8s cubic-bezier(.16, 1, .3, 1) .5s
 
   &__stats
     width 100%
@@ -590,6 +807,9 @@ const projects = [
     border-top 2px solid rgba(213, 210, 204, 1)
     display grid
     grid-template-columns repeat(3, 1fr)
+    opacity 0
+    transform translateY(2vh)
+    transition opacity .8s ease .62s, transform .8s cubic-bezier(.16, 1, .3, 1) .62s
 
   &__stat
     display flex
@@ -615,6 +835,27 @@ const projects = [
     text-transform uppercase
     color rgba(137, 137, 137, 1)
 
+  &.is-visible
+    .app-studio__image
+      clip-path inset(0 0 0 0)
+      transform scale(1)
+
+    .app-studio__label
+      opacity 1
+      transform translateY(0)
+
+    .app-studio__title
+      opacity 1
+      transform translateY(0)
+
+    .app-studio__description
+      opacity 1
+      transform translateY(0)
+
+    .app-studio__stats
+      opacity 1
+      transform translateY(0)
+
 .app-cta
   width 100%
   padding 7vh 2vw
@@ -633,15 +874,21 @@ const projects = [
     text-transform uppercase
     color rgba(40, 39, 37, .4)
     margin-bottom 2.593vh
+    opacity 0
+    transform translateY(2vh)
+    transition opacity .7s ease, transform .7s cubic-bezier(.16, 1, .3, 1)
 
   &__title
     font-family "Source Serif Pro"
     font-size 5.469vw
     font-weight 400
-    letter-spacing 1%
     color rgba(38, 39, 39, 1)
     line-height 1
     margin-bottom 1.667vh
+    opacity 0
+    transform translateY(3vh)
+    letter-spacing .08em
+    transition opacity .9s ease .12s, transform .9s cubic-bezier(.16, 1, .3, 1) .12s, letter-spacing 1.1s cubic-bezier(.16, 1, .3, 1) .12s
 
   &__description
     font-family Inter
@@ -650,6 +897,9 @@ const projects = [
     margin-bottom 3vh
     letter-spacing -1%
     line-height 1.3
+    opacity 0
+    transform translateY(2vh)
+    transition opacity .8s ease .25s, transform .8s cubic-bezier(.16, 1, .3, 1) .25s
 
   &__button
     padding 1.6vh 2vw
@@ -661,17 +911,39 @@ const projects = [
     font-size .85vw
     color #FFFFFF
     cursor pointer
-    transition background-color .2s ease, transform .2s ease
+    opacity 0
+    transform translateY(2vh)
+    transition opacity .8s ease .4s, transform .8s cubic-bezier(.16, 1, .3, 1) .4s, background-color .2s ease
 
     &:hover
       background-color #925B3C
 
-    &:active
-      transform scale(.97)
+      @media(platform: desktop)
+        .app-cta__button-arrow
+          transform translateX(.35vw)
 
   &__button-arrow
     margin-left 1vw
     width 1.083vw
+    transition transform .3s cubic-bezier(.16, 1, .3, 1)
+
+  &.is-visible
+    .app-cta__label
+      opacity 1
+      transform translateY(0)
+
+    .app-cta__title
+      opacity 1
+      transform translateY(0)
+      letter-spacing .01em
+
+    .app-cta__description
+      opacity 1
+      transform translateY(0)
+
+    .app-cta__button
+      opacity 1
+      transform translateY(0)
 
 .app-footer
   width 100%
@@ -727,10 +999,24 @@ const projects = [
     color rgba(255, 255, 255, .55)
     text-decoration none
     cursor pointer
+    position relative
     transition color .2s ease
+
+    &::after
+      content ''
+      width 0
+      height 1px
+      position absolute
+      left 0
+      bottom -.3vh
+      background-color rgba(255, 255, 255, .55)
+      transition width .3s cubic-bezier(.16, 1, .3, 1)
 
     &:hover
       color #FFFFFF
+
+      &::after
+        width 100%
 
   &__line
     width 100%
@@ -770,12 +1056,14 @@ const projects = [
     cursor pointer
     letter-spacing -5%
 
+    &:hover
+      .app-footer__top-button_arrow
+        transform rotateZ(-90deg) translateX(.3vw)
+
     &_arrow
       transform rotateZ(-90deg)
       width 1vw
-
-      @media(platform: mobile)
-        width 2vw
+      transition transform .3s cubic-bezier(.16, 1, .3, 1)
 
 .projects-modal
   width 100%
@@ -789,6 +1077,7 @@ const projects = [
   overflow-y auto
   background-color #F3F1EC
   color #282725
+  will-change clip-path, opacity
 
   &__header
     width 100%
@@ -814,11 +1103,21 @@ const projects = [
     font-size 1.042vw
     color #4F4F4F
     cursor pointer
+    transition color .2s ease, transform .3s cubic-bezier(.16, 1, .3, 1)
+
+    &:hover
+      @media(platform: desktop)
+        transform translateX(-.3vw)
+
+        .projects-modal__close-icon
+          transform rotate(90deg)
 
   &__close-icon
+    display inline-block
     font-size 2vw
     font-weight 300
     line-height 1
+    transition transform .4s cubic-bezier(.16, 1, .3, 1)
 
   &__content
     width 100%
@@ -845,12 +1144,24 @@ const projects = [
     &:last-child
       margin-bottom 0
 
+    &:hover
+      @media(platform: desktop)
+        .projects-modal__item-image
+          transform scale(1.015)
+          filter saturate(1.05)
+
+  &__item-media
+    width 100%
+    overflow hidden
+
   &__item-image
     width 100%
     height auto
     display block
     aspect-ratio 16 / 7
     object-fit cover
+    transform scale(1)
+    transition transform 1s cubic-bezier(.16, 1, .3, 1), filter .6s ease
 
   &__item-info
     width 100%
@@ -886,9 +1197,6 @@ const projects = [
     justify-content space-between
     align-items center
 
-    @media(platform: mobile)
-      margin-top 1vh
-
   &__item-line
     width 6.25vw
     height 1px
@@ -920,6 +1228,8 @@ const projects = [
     padding 5.556vh 4.167vw
     box-sizing border-box
     background-color #F3F1EC
+    transform-origin center
+    will-change transform, opacity
 
   &__top
     width 100%
@@ -937,12 +1247,18 @@ const projects = [
     color #898989
 
   &__close
+    display inline-block
     font-family Inter
     font-size 2vw
     font-weight 300
     line-height 1
     color #282725
     cursor pointer
+    transition transform .4s cubic-bezier(.16, 1, .3, 1)
+
+    &:hover
+      @media(platform: desktop)
+        transform rotate(90deg)
 
   &__title
     display flex
@@ -1005,9 +1321,99 @@ const projects = [
     &:hover
       background-color #825037
 
+      .contacts-modal__button-arrow
+        transform translateX(.3vw)
+
   &__button-arrow
     width 1.25vw
     margin-left 1.563vw
+    transition transform .3s cubic-bezier(.16, 1, .3, 1)
+
+.projects-modal-enter-active
+  transition opacity .55s ease, clip-path .7s cubic-bezier(.16, 1, .3, 1)
+
+  .projects-modal__header
+    animation modal-content-enter .7s cubic-bezier(.16, 1, .3, 1) .25s backwards
+
+  .projects-modal__title
+    animation modal-content-enter .8s cubic-bezier(.16, 1, .3, 1) .32s backwards
+
+  .projects-modal__item
+    animation modal-project-enter .8s cubic-bezier(.16, 1, .3, 1) var(--project-delay) backwards
+
+.projects-modal-leave-active
+  transition opacity .35s ease, clip-path .4s cubic-bezier(.7, 0, .84, 0)
+
+.projects-modal-enter-from
+  opacity 0
+  clip-path inset(100% 0 0 0)
+
+.projects-modal-enter-to
+  opacity 1
+  clip-path inset(0 0 0 0)
+
+.projects-modal-leave-from
+  opacity 1
+  clip-path inset(0 0 0 0)
+
+.projects-modal-leave-to
+  opacity 0
+  clip-path inset(0 0 100% 0)
+
+.contacts-modal-enter-active
+  transition background-color .45s ease
+
+  .contacts-modal__window
+    transition opacity .55s ease, transform .6s cubic-bezier(.16, 1, .3, 1)
+
+  .contacts-modal__label
+    animation modal-content-enter .6s cubic-bezier(.16, 1, .3, 1) .2s backwards
+
+  .contacts-modal__title
+    animation modal-content-enter .7s cubic-bezier(.16, 1, .3, 1) .28s backwards
+
+  .contacts-modal__description
+    animation modal-content-enter .7s cubic-bezier(.16, 1, .3, 1) .36s backwards
+
+  .contacts-modal__items
+    animation modal-content-enter .7s cubic-bezier(.16, 1, .3, 1) .44s backwards
+
+  .contacts-modal__button
+    animation modal-content-enter .7s cubic-bezier(.16, 1, .3, 1) .52s backwards
+
+.contacts-modal-leave-active
+  transition background-color .3s ease
+
+  .contacts-modal__window
+    transition opacity .3s ease, transform .35s cubic-bezier(.7, 0, .84, 0)
+
+.contacts-modal-enter-from
+  background-color rgba(20, 20, 20, 0)
+
+  .contacts-modal__window
+    opacity 0
+    transform translateY(4vh) scale(.94)
+
+.contacts-modal-enter-to
+  background-color rgba(20, 20, 20, .72)
+
+  .contacts-modal__window
+    opacity 1
+    transform translateY(0) scale(1)
+
+.contacts-modal-leave-from
+  background-color rgba(20, 20, 20, .72)
+
+  .contacts-modal__window
+    opacity 1
+    transform translateY(0) scale(1)
+
+.contacts-modal-leave-to
+  background-color rgba(20, 20, 20, 0)
+
+  .contacts-modal__window
+    opacity 0
+    transform translateY(3vh) scale(.96)
 
 @media(platform: mobile)
   .app-header
@@ -1026,12 +1432,17 @@ const projects = [
 
   .app-hero
     min-height 100svh
-    background-position 65% center
+
+    &__background
+      inset 0
+      background-position 65% center
+      transform none
+      animation none
 
     &__content
       width 90%
       margin-left 5vw
-      padding-top 0vh
+      padding-top 0
 
     &__label
       font-size 2.3vw
@@ -1074,6 +1485,7 @@ const projects = [
 
     &__item
       width 100%
+      transform translateY(2vh)
 
       &_large
         .app-projects__item-image
@@ -1094,10 +1506,14 @@ const projects = [
       letter-spacing .5vw
 
     &__item-line
-      width 10vw
+      width 0
 
     &__item-index
       font-size 2vw
+
+    &.is-visible
+      .app-projects__item-line
+        width 10vw
 
   .app-studio
     display flex
@@ -1190,6 +1606,9 @@ const projects = [
     &__top-button
       font-size 2.5vw
 
+      &_arrow
+        width 2vw
+
   .projects-modal
     padding 3vh 5vw 6vh 5vw
 
@@ -1223,6 +1642,9 @@ const projects = [
 
     &__item-title
       font-size 7vw
+
+    &__item-right
+      margin-top 1vh
 
     &__item-description
       font-size 2vw
@@ -1281,4 +1703,58 @@ const projects = [
     &__button-arrow
       width 4vw
       margin-left 5vw
+
+@keyframes header-enter
+  0%
+    opacity 0
+    transform translateY(-2vh)
+
+  100%
+    opacity 1
+    transform translateY(0)
+
+@keyframes hero-background-enter
+  0%
+    opacity 0
+    transform scale(1.1)
+
+  100%
+    opacity 1
+    transform scale(1.06)
+
+@keyframes hero-content-enter
+  0%
+    opacity 0
+    transform translateY(3vh)
+
+  100%
+    opacity 1
+    transform translateY(0)
+
+@keyframes hero-button-enter
+  0%
+    opacity 0
+    transform translateY(2vh)
+
+  100%
+    opacity 1
+    transform translateY(0)
+
+@keyframes modal-content-enter
+  0%
+    opacity 0
+    transform translateY(2.5vh)
+
+  100%
+    opacity 1
+    transform translateY(0)
+
+@keyframes modal-project-enter
+  0%
+    opacity 0
+    transform translateY(4vh)
+
+  100%
+    opacity 1
+    transform translateY(0)
 </style>
