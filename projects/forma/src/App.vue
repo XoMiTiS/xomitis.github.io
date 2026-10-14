@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
-import HeaderImage from './assets/header_bg.png'
+import HeaderImage from './assets/header_bg.webp'
 import HouseMountainsImage from './assets/forma-house-mountains.png'
 import HousePinesWaterImage from './assets/forma-pines-water.png'
 import HouseRocksLightImage from './assets/forma-rocks-light.png'
