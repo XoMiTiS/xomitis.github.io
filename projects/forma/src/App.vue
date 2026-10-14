@@ -5,10 +5,26 @@ import HouseMountainsImage from './assets/forma-house-mountains.png'
 import HousePinesWaterImage from './assets/forma-pines-water.png'
 import HouseRocksLightImage from './assets/forma-rocks-light.png'
 import StudioImage from './assets/forma-interior.png'
+import LogoBlack from './assets/logo_black.png'
+import LogoWhite from './assets/logo_white.png'
 import ArrowIcon from './components/icons/Arrow.vue'
 import { useMedia } from '../composables/useMedia.js'
 
 const { isMobile } = useMedia()
+
+const isLoading = ref(true)
+const siteLoaded = ref(false)
+
+const loaderLetters = 'FORMA'
+const visibleLoaderLetters = ref(1)
+
+const visibleLoaderText = computed(() => {
+  return loaderLetters.slice(0, visibleLoaderLetters.value)
+})
+
+let loaderTimer = null
+let resourcesReady = false
+let loaderCanFinish = false
 
 const projectsModalOpen = ref(false)
 const contactsModalOpen = ref(false)
@@ -25,6 +41,163 @@ const ctaVisible = ref(false)
 
 let revealObserver = null
 let scrollFrame = null
+
+const projects = [
+  {
+    id: 1,
+    title: 'Дом в горах',
+    description: 'Частная резиденция · Алтай',
+    index: '01',
+    image: HouseMountainsImage,
+    className: 'large',
+  },
+  {
+    id: 2,
+    title: 'Сосны и вода',
+    description: 'Загородный дом · Карелия',
+    index: '02',
+    image: HousePinesWaterImage,
+    className: 'small',
+  },
+  {
+    id: 3,
+    title: 'Скалы и свет',
+    description: 'Частная резиденция · Крым',
+    index: '03',
+    image: HouseRocksLightImage,
+    className: 'small',
+  },
+]
+
+const preloadImages = [
+  HeaderImage,
+  HouseMountainsImage,
+  HousePinesWaterImage,
+  HouseRocksLightImage,
+  StudioImage,
+  LogoBlack,
+  LogoWhite,
+]
+
+const heroBackgroundStyle = computed(() => ({
+  backgroundImage: `url(${HeaderImage})`,
+  '--hero-offset': `${heroOffset.value}px`,
+}))
+
+const studioStyle = {
+  backgroundImage: `url(${StudioImage})`,
+}
+
+const wait = (time) => {
+  return new Promise((resolve) => {
+    setTimeout(resolve, time)
+  })
+}
+
+const finishLoader = () => {
+  if (!resourcesReady || !loaderCanFinish) {
+    return
+  }
+
+  clearTimeout(loaderTimer)
+
+  loaderTimer = setTimeout(() => {
+    isLoading.value = false
+  }, 450)
+}
+
+const animateLoader = () => {
+  if (visibleLoaderLetters.value >= loaderLetters.length) {
+    loaderCanFinish = true
+
+    finishLoader()
+
+    if (!resourcesReady) {
+      loaderTimer = setTimeout(() => {
+        visibleLoaderLetters.value = 1
+        loaderCanFinish = false
+        animateLoader()
+      }, 700)
+    }
+
+    return
+  }
+
+  loaderTimer = setTimeout(() => {
+    visibleLoaderLetters.value += 1
+    animateLoader()
+  }, 220)
+}
+
+const preloadImage = (src) => {
+  return new Promise((resolve) => {
+    const image = new Image()
+    let finished = false
+
+    const finish = async () => {
+      if (finished) {
+        return
+      }
+
+      finished = true
+
+      try {
+        if (image.decode) {
+          await image.decode()
+        }
+      } catch (error) {
+      }
+
+      resolve()
+    }
+
+    const fail = () => {
+      if (finished) {
+        return
+      }
+
+      finished = true
+      resolve()
+    }
+
+    image.onload = finish
+    image.onerror = fail
+    image.decoding = 'async'
+    image.src = src
+
+    if (image.complete && image.naturalWidth > 0) {
+      finish()
+    }
+  })
+}
+
+const waitForPageLoad = () => {
+  return new Promise((resolve) => {
+    if (document.readyState === 'complete') {
+      resolve()
+      return
+    }
+
+    window.addEventListener(
+      'load',
+      resolve,
+      {
+        once: true,
+      },
+    )
+  })
+}
+
+const waitForFonts = async () => {
+  if (!document.fonts) {
+    return
+  }
+
+  try {
+    await document.fonts.ready
+  } catch (error) {
+  }
+}
 
 const scrollToProjects = () => {
   document.querySelector('#projects')?.scrollIntoView({
@@ -73,41 +246,25 @@ const closeContactsModal = () => {
   contactsModalOpen.value = false
 }
 
-const heroBackgroundStyle = computed(() => ({
-  backgroundImage: `url(${HeaderImage})`,
-  '--hero-offset': `${heroOffset.value}px`,
-}))
+const onLoaderAfterLeave = () => {
+  siteLoaded.value = true
 
-const studioStyle = {
-  backgroundImage: `url(${StudioImage})`,
+  if (!projectsModalOpen.value && !contactsModalOpen.value) {
+    unlockPage()
+  }
 }
 
-const projects = [
-  {
-    id: 1,
-    title: 'Дом в горах',
-    description: 'Частная резиденция · Алтай',
-    index: '01',
-    image: HouseMountainsImage,
-    className: 'large',
-  },
-  {
-    id: 2,
-    title: 'Сосны и вода',
-    description: 'Загородный дом · Карелия',
-    index: '02',
-    image: HousePinesWaterImage,
-    className: 'small',
-  },
-  {
-    id: 3,
-    title: 'Скалы и свет',
-    description: 'Частная резиденция · Крым',
-    index: '03',
-    image: HouseRocksLightImage,
-    className: 'small',
-  },
-]
+const onProjectsModalAfterLeave = () => {
+  if (!isLoading.value && !contactsModalOpen.value) {
+    unlockPage()
+  }
+}
+
+const onContactsModalAfterLeave = () => {
+  if (!isLoading.value && !projectsModalOpen.value) {
+    unlockPage()
+  }
+}
 
 const updateHeroParallax = () => {
   if (isMobile.value || !heroSection.value) {
@@ -123,7 +280,10 @@ const updateHeroParallax = () => {
 
   heroOffset.value = Math.min(
     60,
-    Math.max(0, -rect.top * 0.12),
+    Math.max(
+      0,
+      -rect.top * 0.12,
+    ),
   )
 }
 
@@ -151,7 +311,10 @@ const onKeydown = (event) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  animateLoader()
+  lockPage()
+
   revealObserver = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -191,19 +354,51 @@ onMounted(() => {
     revealObserver.observe(ctaSection.value)
   }
 
-  window.addEventListener('scroll', onScroll, {
-    passive: true,
-  })
+  window.addEventListener(
+    'scroll',
+    onScroll,
+    {
+      passive: true,
+    },
+  )
 
-  window.addEventListener('keydown', onKeydown)
+  window.addEventListener(
+    'keydown',
+    onKeydown,
+  )
 
   updateHeroParallax()
+
+  const resourcesLoading = Promise.all([
+    waitForPageLoad(),
+    waitForFonts(),
+    ...preloadImages.map(preloadImage),
+  ])
+
+  await Promise.race([
+    resourcesLoading,
+    wait(10000),
+  ])
+
+  resourcesReady = true
+
+  finishLoader()
 })
 
 onBeforeUnmount(() => {
   revealObserver?.disconnect()
-  window.removeEventListener('scroll', onScroll)
-  window.removeEventListener('keydown', onKeydown)
+
+  window.removeEventListener(
+    'scroll',
+    onScroll,
+  )
+
+  window.removeEventListener(
+    'keydown',
+    onKeydown,
+  )
+
+  clearTimeout(loaderTimer)
 
   if (scrollFrame) {
     cancelAnimationFrame(scrollFrame)
@@ -214,15 +409,39 @@ onBeforeUnmount(() => {
 </script>
 
 <template lang="pug">
-  .app
+  .app(
+    :class="{ 'is-loaded': siteLoaded }"
+  )
+    Transition(
+      name="loader"
+      @after-leave="onLoaderAfterLeave"
+    )
+      .app-loader(v-if="isLoading")
+        .app-loader__logo
+          | {{ visibleLoaderText }}
+
+        .app-loader__line
+          .app-loader__line-progress
+
     header.app-header
       .app-header__logo
-        img.app-header__logo-icon(src="./assets/logo_black.png")
+        img.app-header__logo-icon(
+          :src="LogoBlack"
+          alt="Forma"
+        )
 
       nav.app-header__nav
-        .app-header__nav-item(@click="scrollToProjects") Проекты
-        .app-header__nav-item(@click="scrollToStudio") Студия
-        .app-header__nav-item(@click="openContactsModal") Контакты
+        .app-header__nav-item(
+          @click="scrollToProjects"
+        ) Проекты
+
+        .app-header__nav-item(
+          @click="scrollToStudio"
+        ) Студия
+
+        .app-header__nav-item(
+          @click="openContactsModal"
+        ) Контакты
 
     main
       section.app-hero(
@@ -241,12 +460,16 @@ onBeforeUnmount(() => {
             span Архитектура
             span для жизни
 
-          .app-hero__description(v-if="!isMobile")
+          .app-hero__description(
+            v-if="!isMobile"
+          )
             span Создаём дома и пространства, которые
             span гармонично вписываются в природу
             span и становятся частью вашей жизни.
 
-          .app-hero__button.unselectable(@click="scrollToProjects")
+          .app-hero__button.unselectable(
+            @click="scrollToProjects"
+          )
             span Смотреть проекты
             ArrowIcon.app-hero__button-arrow
 
@@ -257,9 +480,14 @@ onBeforeUnmount(() => {
         .app-projects__header
           .app-projects__label Избранные проекты
 
-          .app-projects__all(@click="openProjectsModal")
+          .app-projects__all(
+            @click="openProjectsModal"
+          )
             span Все проекты
-            ArrowIcon.app-projects__all-arrow(v-if="!isMobile")
+
+            ArrowIcon.app-projects__all-arrow(
+              v-if="!isMobile"
+            )
 
         .app-projects__content
           .app-projects__item(
@@ -273,20 +501,25 @@ onBeforeUnmount(() => {
 
             .app-projects__item-info
               .app-projects__item-content
-                .app-projects__item-title {{ project.title }}
+                .app-projects__item-title
+                  | {{ project.title }}
 
               .app-projects__item-meta
-                .app-projects__item-description {{ project.description }}
+                .app-projects__item-description
+                  | {{ project.description }}
 
                 .app-projects__item-number
                   .app-projects__item-line
-                  .app-projects__item-index {{ project.index }}
+                  .app-projects__item-index
+                    | {{ project.index }}
 
       section.app-studio#studio(
         ref="studioSection"
         :class="{ 'is-visible': studioVisible }"
       )
-        .app-studio__image(:style="studioStyle")
+        .app-studio__image(
+          :style="studioStyle"
+        )
 
         .app-studio__content
           .app-studio__label Студия Forma
@@ -304,11 +537,13 @@ onBeforeUnmount(() => {
 
             .app-studio__stat
               .app-studio__stat-value 50+
-              .app-studio__stat-label Реализованных проектов
+              .app-studio__stat-label
+                | Реализованных проектов
 
             .app-studio__stat
               .app-studio__stat-value 12
-              .app-studio__stat-label Регионов России
+              .app-studio__stat-label
+                | Регионов России
 
       section.app-cta(
         ref="ctaSection"
@@ -316,9 +551,12 @@ onBeforeUnmount(() => {
       )
         .app-cta__label Давайте знакомиться
         .app-cta__title Обсудим ваш проект?
-        .app-cta__description Расскажите о своей идее. Начнём с разговора.
+        .app-cta__description
+          | Расскажите о своей идее. Начнём с разговора.
 
-        .app-cta__button.unselectable(@click="openContactsModal")
+        .app-cta__button.unselectable(
+          @click="openContactsModal"
+        )
           span Связаться с нами
           ArrowIcon.app-cta__button-arrow
 
@@ -326,21 +564,40 @@ onBeforeUnmount(() => {
       .app-footer__top
         .app-footer__brand
           .app-footer__logo
-            img.app-footer__logo-icon(src="./assets/logo_white.png")
+            img.app-footer__logo-icon(
+              :src="LogoWhite"
+              alt="Forma"
+            )
 
-          .app-footer__brand-description Архитектура для жизни
+          .app-footer__brand-description
+            | Архитектура для жизни
 
         .app-footer__column
           .app-footer__column-title Навигация
-          .app-footer__column-item(@click="scrollToProjects") Проекты
-          .app-footer__column-item(@click="scrollToStudio") Студия
-          .app-footer__column-item(@click="openContactsModal") Контакты
+
+          .app-footer__column-item(
+            @click="scrollToProjects"
+          ) Проекты
+
+          .app-footer__column-item(
+            @click="scrollToStudio"
+          ) Студия
+
+          .app-footer__column-item(
+            @click="openContactsModal"
+          ) Контакты
 
         .app-footer__column
           .app-footer__column-title Контакты
-          a.app-footer__column-item(href="mailto:hello@forma.studio") hello@forma.studio
+
+          a.app-footer__column-item(
+            href="mailto:hello@forma.studio"
+          ) hello@forma.studio
+
           .app-footer__column-item Москва
-          .app-footer__column-item Работаем по всей России
+
+          .app-footer__column-item
+            | Работаем по всей России
 
       .app-footer__line
 
@@ -348,23 +605,27 @@ onBeforeUnmount(() => {
         .app-footer__copyright © 2026 FORMA
 
         .app-footer__bottom-right
-          .app-footer__privacy Политика конфиденциальности
+          .app-footer__privacy
+            | Политика конфиденциальности
 
-          .app-footer__top-button(@click="scrollToTop")
+          .app-footer__top-button(
+            @click="scrollToTop"
+          )
             span Наверх
             ArrowIcon.app-footer__top-button_arrow
 
     Teleport(to="body")
       Transition(
         name="projects-modal"
-        @after-leave="unlockPage"
+        @after-leave="onProjectsModalAfterLeave"
       )
         .projects-modal(
           v-if="projectsModalOpen"
           @click.self="closeProjectsModal"
         )
           .projects-modal__header
-            .projects-modal__label Избранная архитектура
+            .projects-modal__label
+              | Избранная архитектура
 
             .projects-modal__close.unselectable(
               @click="closeProjectsModal"
@@ -389,19 +650,22 @@ onBeforeUnmount(() => {
 
                 .projects-modal__item-info
                   .projects-modal__item-left
-                    .projects-modal__item-title {{ project.title }}
+                    .projects-modal__item-title
+                      | {{ project.title }}
 
                   .projects-modal__item-right
-                    .projects-modal__item-description {{ project.description }}
+                    .projects-modal__item-description
+                      | {{ project.description }}
 
                     .projects-modal__item-number
                       .projects-modal__item-line
-                      .projects-modal__item-index {{ project.index }}
+                      .projects-modal__item-index
+                        | {{ project.index }}
 
     Teleport(to="body")
       Transition(
         name="contacts-modal"
-        @after-leave="unlockPage"
+        @after-leave="onContactsModalAfterLeave"
       )
         .contacts-modal(
           v-if="contactsModalOpen"
@@ -409,7 +673,9 @@ onBeforeUnmount(() => {
         )
           .contacts-modal__window
             .contacts-modal__top
-              .contacts-modal__label Связаться с нами
+              .contacts-modal__label
+                | Связаться с нами
+
               .contacts-modal__close.unselectable(
                 @click="closeContactsModal"
               ) ×
@@ -424,15 +690,20 @@ onBeforeUnmount(() => {
               | как можем помочь реализовать её.
 
             .contacts-modal__items
-              a.contacts-modal__item(href="mailto:hello@forma.studio")
+              a.contacts-modal__item(
+                href="mailto:hello@forma.studio"
+              )
                 .contacts-modal__item-label Почта
-                .contacts-modal__item-value hello@forma.studio
+                .contacts-modal__item-value
+                  | hello@forma.studio
 
               .contacts-modal__item
                 .contacts-modal__item-label Город
                 .contacts-modal__item-value Москва
 
-            a.contacts-modal__button(href="mailto:hello@forma.studio")
+            a.contacts-modal__button(
+              href="mailto:hello@forma.studio"
+            )
               span Написать нам
               ArrowIcon.contacts-modal__button-arrow
 </template>
@@ -443,6 +714,65 @@ onBeforeUnmount(() => {
   overflow hidden
   background-color #F3F1EC
   color #282725
+
+  &.is-loaded
+    .app-header
+      animation header-enter .8s cubic-bezier(.16, 1, .3, 1) .1s forwards
+
+    .app-hero__background
+      animation hero-background-enter 1.6s cubic-bezier(.16, 1, .3, 1) forwards
+
+    .app-hero__label
+      animation hero-content-enter .7s cubic-bezier(.16, 1, .3, 1) .2s forwards
+
+    .app-hero__title
+      animation hero-content-enter .9s cubic-bezier(.16, 1, .3, 1) .35s forwards
+
+    .app-hero__description
+      animation hero-content-enter .8s cubic-bezier(.16, 1, .3, 1) .55s forwards
+
+    .app-hero__button
+      animation hero-button-enter .8s cubic-bezier(.16, 1, .3, 1) .7s forwards
+
+.app-loader
+  width 100%
+  height 100dvh
+  position fixed
+  inset 0
+  z-index 99999
+  display flex
+  flex-direction column
+  justify-content center
+  align-items center
+  background-color #F3F1EC
+  color #282725
+
+  &__logo
+    min-width 12vw
+    min-height 5vh
+    display flex
+    justify-content center
+    align-items center
+    font-family "Source Serif Pro", serif
+    font-size 2.8vw
+    font-weight 400
+    line-height 1
+    letter-spacing .08em
+    margin-bottom 4vh
+    white-space nowrap
+
+  &__line
+    width 8vw
+    height .2vh
+    overflow hidden
+    background-color rgba(40, 39, 37, .15)
+
+  &__line-progress
+    width 100%
+    height 100%
+    background-color #975F3F
+    transform translateX(-100%)
+    animation forma-loading-line 1.8s ease-in-out infinite
 
 .app-header
   width 100%
@@ -456,7 +786,8 @@ onBeforeUnmount(() => {
   left 0
   z-index 10
   font-family 'Open Sans', sans-serif
-  animation header-enter .8s cubic-bezier(.16, 1, .3, 1) .15s backwards
+  opacity 0
+  transform translateY(-2vh)
 
   &__logo
     display flex
@@ -497,8 +828,8 @@ onBeforeUnmount(() => {
     background-size cover
     background-position center calc(50% + var(--hero-offset))
     background-repeat no-repeat
-    transform scale(1.06)
-    animation hero-background-enter 1.6s cubic-bezier(.16, 1, .3, 1) backwards
+    opacity 0
+    transform scale(1.1)
     will-change transform, background-position
 
   &__content
@@ -519,7 +850,8 @@ onBeforeUnmount(() => {
     text-transform uppercase
     color rgba(0, 2, 6, .5)
     margin-bottom 2.5vh
-    animation hero-content-enter .7s cubic-bezier(.16, 1, .3, 1) .2s backwards
+    opacity 0
+    transform translateY(3vh)
 
   &__title
     display flex
@@ -532,7 +864,8 @@ onBeforeUnmount(() => {
     letter-spacing -.2vw
     margin-bottom 3.981vh
     color rgba(38, 39, 39, 1)
-    animation hero-content-enter .9s cubic-bezier(.16, 1, .3, 1) .35s backwards
+    opacity 0
+    transform translateY(3vh)
 
   &__description
     display flex
@@ -545,7 +878,8 @@ onBeforeUnmount(() => {
     line-height 1.3
     color #4F4F4F
     margin-bottom 4vh
-    animation hero-content-enter .8s cubic-bezier(.16, 1, .3, 1) .55s backwards
+    opacity 0
+    transform translateY(3vh)
 
   &__button
     width fit-content
@@ -558,7 +892,8 @@ onBeforeUnmount(() => {
     font-size 1.458vw
     color #F4E8D8
     cursor pointer
-    animation hero-button-enter .8s cubic-bezier(.16, 1, .3, 1) .7s backwards
+    opacity 0
+    transform translateY(2vh)
     transition background-color .2s ease, transform .3s cubic-bezier(.16, 1, .3, 1)
 
     &:hover
@@ -621,9 +956,6 @@ onBeforeUnmount(() => {
     &-arrow
       width 1vw
       transition transform .3s cubic-bezier(.16, 1, .3, 1)
-
-      @media(platform: mobile)
-        width 3.5vw
 
   &__content
     width 100%
@@ -709,9 +1041,6 @@ onBeforeUnmount(() => {
     margin-right 1vw
     background-color #C8C7C4
     transition width .8s cubic-bezier(.16, 1, .3, 1)
-
-    @media(platform: mobile)
-      height 1px
 
   &__item-index
     font-family Inter
@@ -1329,6 +1658,12 @@ onBeforeUnmount(() => {
     margin-left 1.563vw
     transition transform .3s cubic-bezier(.16, 1, .3, 1)
 
+.loader-leave-active
+  transition opacity .55s ease
+
+.loader-leave-to
+  opacity 0
+
 .projects-modal-enter-active
   transition opacity .55s ease, clip-path .7s cubic-bezier(.16, 1, .3, 1)
 
@@ -1416,16 +1751,27 @@ onBeforeUnmount(() => {
     transform translateY(3vh) scale(.96)
 
 @media(platform: mobile)
+  .app-loader
+    &__logo
+      min-width 42vw
+      min-height 6vh
+      font-size 10vw
+      letter-spacing .08em
+      margin-bottom 3vh
+
+    &__line
+      width 28vw
+      height .15vh
+
   .app-header
     padding 2vh 5vw
 
-    &__logo-icon
-      font-size 7vw
-      margin-right 3vw
+    &__logo
+      width 40vw
 
-    &__logo-text
-      font-size 3vw
-      letter-spacing 1vw
+    &__logo-icon
+      width 100%
+      height auto
 
     &__nav
       display none
@@ -1436,8 +1782,6 @@ onBeforeUnmount(() => {
     &__background
       inset 0
       background-position 65% center
-      transform none
-      animation none
 
     &__content
       width 90%
@@ -1507,6 +1851,7 @@ onBeforeUnmount(() => {
 
     &__item-line
       width 0
+      height 1px
 
     &__item-index
       font-size 2vw
@@ -1574,10 +1919,8 @@ onBeforeUnmount(() => {
       gap 4vh
 
     &__logo-icon
-      font-size 8vw
-
-    &__logo-text
-      font-size 4vw
+      width 40vw
+      height auto
 
     &__brand-description
       font-size 2.5vw
@@ -1703,6 +2046,16 @@ onBeforeUnmount(() => {
     &__button-arrow
       width 4vw
       margin-left 5vw
+
+@keyframes forma-loading-line
+  0%
+    transform translateX(-100%)
+
+  50%
+    transform translateX(0)
+
+  100%
+    transform translateX(100%)
 
 @keyframes header-enter
   0%
