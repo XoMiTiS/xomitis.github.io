@@ -128,6 +128,7 @@ import linkIcon from '@/assets/images/contacts/link.svg'
 import WhatsappIcon from '@/components/Calendar/icons/Whatsapp.vue'
 import VkIcon from '@/components/Calendar/icons/Vk.vue'
 import TelegramIcon from '@/components/Calendar/icons/Telegram.vue'
+import MaxIcon from '@/components/Calendar/icons/Max.vue'
 
 const contacts = [
   {
@@ -146,7 +147,7 @@ const contacts = [
   {
     id: 3,
     icon: linkIcon,
-    value: 'Telegram / VK / WhatsApp',
+    value: 'Telegram / VK / WhatsApp / MAX',
     modal: true,
   },
 ]
@@ -172,6 +173,13 @@ const socials = [
     label: 'Telegram',
     url: 'https://t.me/denamored',
     component: TelegramIcon,
+  },
+  {
+    id: 4,
+    name: 'max',
+    label: 'Max',
+    url: 'https://max.ru/u/f9LHodD0cOI_8D9nIbmoBNu1LxGifVW6gAAu-AIUXXiCXog2fHyd9x3MX1c',
+    component: MaxIcon,
   },
 ]
 

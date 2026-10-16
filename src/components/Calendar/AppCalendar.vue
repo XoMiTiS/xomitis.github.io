@@ -53,6 +53,7 @@
 import TelegramIcon from '@/components/Calendar/icons/Telegram.vue'
 import VkIcon from '@/components/Calendar/icons/Vk.vue'
 import WhatsappIcon from '@/components/Calendar/icons/Whatsapp.vue'
+import MaxIcon from '@/components/Calendar/icons/Max.vue'
 
 const mainTitles = [
   'Frontend.',
@@ -93,6 +94,13 @@ const socials = [
     label: 'Telegram',
     url: 'https://t.me/denamored',
     component: TelegramIcon,
+  },
+  {
+    id: 4,
+    name: 'max',
+    label: 'Max',
+    url: 'https://max.ru/u/f9LHodD0cOI_8D9nIbmoBNu1LxGifVW6gAAu-AIUXXiCXog2fHyd9x3MX1c',
+    component: MaxIcon,
   },
 ]
 </script>
