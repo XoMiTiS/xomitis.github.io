@@ -1,5 +1,17 @@
 import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'
+import '@fontsource/oswald/400.css'
+import '@fontsource/oswald/500.css'
+import '@fontsource/oswald/600.css'
+import '@fontsource/oswald/700.css'
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/500.css'
+import '@fontsource/inter/600.css'
+import '@fontsource/inter/700.css'
+import '@fontsource/roboto-mono/400.css'
+import '@fontsource/roboto-mono/500.css'
+import '@fontsource/roboto-mono/600.css'
+import '@fontsource/roboto-mono/700.css'
 
 createApp(App).mount('#app')

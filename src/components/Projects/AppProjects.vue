@@ -145,6 +145,7 @@ const projects = [
     preview: PulseSiteImage,
     color: '#121016',
     width: '80%',
+    url: 'https://xomitis.github.io/pulse/',
     decorations: [
       {
         id: 1,
@@ -171,6 +172,7 @@ const projects = [
     preview: ZernaSiteImage,
     color: '#EEDDC5',
     width: '80%',
+    url: 'https://xomitis.github.io/zerna/',
     decorations: [
       {
         id: 1,
