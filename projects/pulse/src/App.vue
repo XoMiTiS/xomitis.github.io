@@ -1245,7 +1245,7 @@ onBeforeUnmount(() => {
     font-family Oswald
     font-size 5.208vw
     font-weight 600
-    line-height .78
+    line-height 1
 
   &__ticket-meta
     margin-top 4vh
@@ -1447,7 +1447,7 @@ onBeforeUnmount(() => {
     font-family Oswald
     font-size 6.25vw
     font-weight 500
-    line-height .8
+    line-height 1
     color #C8FF2D
 
   &__success-text
