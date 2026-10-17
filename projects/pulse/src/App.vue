@@ -17,11 +17,22 @@ import LineupTitleImage from './assets/lineup_title.png'
 import CtaTitleImage from './assets/cta_title.png'
 import ArrowLongIcon from './components/ArrowLong.vue'
 import ArrowShortIcon from '@/components/ArrowShort.vue'
-import ArrowMediumIcon from './components/ArrowMedium.vue'
-import ArrowShort from '@/components/ArrowShort.vue'
 
 const isLoading = ref(true)
 const siteLoaded = ref(false)
+const mobileMenuOpen = ref(false)
+const ticketModalOpen = ref(false)
+const ticketSubmitted = ref(false)
+const ticketQuantity = ref(1)
+const phoneError = ref(false)
+
+const ticketPrice = 6900
+
+const ticketForm = ref({
+  name: '',
+  email: '',
+  phone: '',
+})
 
 const loaderText = ref('P')
 const pulseWord = 'PULSE'
@@ -46,7 +57,7 @@ const artists = [
     city: 'Берлин',
     style: 'Техно',
     date: '18.07',
-    description: 'Энергия<br>  без границ',
+    description: 'Энергия<br> без границ',
     image: VoltImage,
   },
   {
@@ -113,6 +124,14 @@ const scheduleImageStyle = computed(() => ({
   backgroundImage: `url(${ScheduleBlackImage})`,
 }))
 
+const ticketTotal = computed(() => {
+  return ticketPrice * ticketQuantity.value
+})
+
+const formatPrice = (value) => {
+  return new Intl.NumberFormat('ru-RU').format(value)
+}
+
 const wait = (time) => {
   return new Promise((resolve) => {
     setTimeout(resolve, time)
@@ -130,7 +149,6 @@ const animateLoader = () => {
     }
 
     loaderText.value = pulseWord.slice(0, index)
-
     loaderTimer = setTimeout(tick, 180)
   }
 
@@ -159,8 +177,17 @@ const preloadImage = (src) => {
       resolve()
     }
 
+    const fail = () => {
+      if (finished) {
+        return
+      }
+
+      finished = true
+      resolve()
+    }
+
     image.onload = finish
-    image.onerror = resolve
+    image.onerror = fail
     image.decoding = 'async'
     image.src = src
 
@@ -195,8 +222,133 @@ const scrollToTop = () => {
   })
 }
 
-const openTicket = () => {
-  scrollTo('#tickets')
+const openMobileMenu = () => {
+  mobileMenuOpen.value = true
+  document.body.style.overflow = 'hidden'
+}
+
+const closeMobileMenu = () => {
+  mobileMenuOpen.value = false
+
+  if (!ticketModalOpen.value && !isLoading.value) {
+    document.body.style.overflow = ''
+  }
+}
+
+const toggleMobileMenu = () => {
+  if (mobileMenuOpen.value) {
+    closeMobileMenu()
+    return
+  }
+
+  openMobileMenu()
+}
+
+const mobileNavigate = (selector) => {
+  closeMobileMenu()
+
+  setTimeout(() => {
+    scrollTo(selector)
+  }, 400)
+}
+
+const openTicketModal = () => {
+  ticketSubmitted.value = false
+  phoneError.value = false
+  ticketModalOpen.value = true
+  document.body.style.overflow = 'hidden'
+}
+
+const closeTicketModal = () => {
+  ticketModalOpen.value = false
+  phoneError.value = false
+
+  if (!mobileMenuOpen.value && !isLoading.value) {
+    document.body.style.overflow = ''
+  }
+}
+
+const increaseTicketQuantity = () => {
+  if (ticketQuantity.value >= 6) {
+    return
+  }
+
+  ticketQuantity.value += 1
+}
+
+const decreaseTicketQuantity = () => {
+  if (ticketQuantity.value <= 1) {
+    return
+  }
+
+  ticketQuantity.value -= 1
+}
+
+const formatPhone = (event) => {
+  const rawValue = event.target.value
+  let digits = rawValue.replace(/\D/g, '')
+
+  phoneError.value = false
+
+  if (rawValue.startsWith('+7')) {
+    digits = digits.slice(1)
+  } else if (digits.length === 11 && digits.startsWith('8')) {
+    digits = digits.slice(1)
+  } else if (digits.length === 11 && digits.startsWith('7')) {
+    digits = digits.slice(1)
+  }
+
+  digits = digits.slice(0, 10)
+
+  if (!digits.length) {
+    ticketForm.value.phone = ''
+    return
+  }
+
+  let formatted = `+7${digits.slice(0, 3)}`
+
+  if (digits.length > 3) {
+    formatted += ` ${digits.slice(3, 6)}`
+  }
+
+  if (digits.length > 6) {
+    formatted += `-${digits.slice(6, 8)}`
+  }
+
+  if (digits.length > 8) {
+    formatted += `-${digits.slice(8, 10)}`
+  }
+
+  ticketForm.value.phone = formatted
+}
+
+const validatePhone = () => {
+  const digits = ticketForm.value.phone.replace(/\D/g, '')
+  phoneError.value = digits.length !== 11
+  return !phoneError.value
+}
+
+const submitTicket = () => {
+  if (!validatePhone()) {
+    return
+  }
+
+  ticketSubmitted.value = true
+}
+
+const onKeydown = (event) => {
+  if (event.key !== 'Escape') {
+    return
+  }
+
+  if (ticketModalOpen.value) {
+    closeTicketModal()
+    return
+  }
+
+  if (mobileMenuOpen.value) {
+    closeMobileMenu()
+  }
 }
 
 const setupObserver = () => {
@@ -251,14 +403,18 @@ const setupObserver = () => {
 
 const onLoaderAfterLeave = () => {
   siteLoaded.value = true
-  document.body.style.overflow = ''
+
+  if (!mobileMenuOpen.value && !ticketModalOpen.value) {
+    document.body.style.overflow = ''
+  }
+
   setupObserver()
 }
 
 onMounted(async () => {
   document.body.style.overflow = 'hidden'
-
   animateLoader()
+  window.addEventListener('keydown', onKeydown)
 
   await Promise.all([
     waitForFonts(),
@@ -267,7 +423,6 @@ onMounted(async () => {
   ])
 
   clearTimeout(loaderTimer)
-
   loaderText.value = pulseWord
 
   await wait(350)
@@ -278,6 +433,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   clearTimeout(loaderTimer)
   revealObserver?.disconnect()
+  window.removeEventListener('keydown', onKeydown)
   document.body.style.overflow = ''
 })
 </script>
@@ -292,15 +448,17 @@ onBeforeUnmount(() => {
     )
       .loader(v-if="isLoading")
         .loader__logo {{ loaderText }}
-
         .loader__line
           .loader__line-progress
 
-    header.header
+    header.header(
+      :class="{ 'header_menu-open': mobileMenuOpen }"
+    )
       .header__brand
         img.header__brand-icon(
           :src="LogoImage"
           alt="Pulse"
+          draggable="false"
         )
 
       nav.header__nav
@@ -316,9 +474,219 @@ onBeforeUnmount(() => {
           @click="scrollTo('#tickets')"
         ) Билеты
 
-      .header__menu
+      button.header__menu.unselectable(
+        type="button"
+        :class="{ 'header__menu_open': mobileMenuOpen }"
+        :aria-label="mobileMenuOpen ? 'Закрыть меню' : 'Открыть меню'"
+        :aria-expanded="mobileMenuOpen"
+        @click="toggleMobileMenu"
+      )
         span
         span
+
+    Transition(name="mobile-menu")
+      .mobile-menu(
+        v-if="mobileMenuOpen"
+      )
+        .mobile-menu__backdrop(
+          @click="closeMobileMenu"
+        )
+
+        .mobile-menu__panel
+          .mobile-menu__label Навигация
+
+          nav.mobile-menu__nav
+            .mobile-menu__item.unselectable(
+              @click="mobileNavigate('#lineup')"
+            )
+              span 01
+              span Лайнап
+
+            .mobile-menu__item.unselectable(
+              @click="mobileNavigate('#schedule')"
+            )
+              span 02
+              span Программа
+
+            .mobile-menu__item.unselectable(
+              @click="mobileNavigate('#tickets')"
+            )
+              span 03
+              span Билеты
+
+            .mobile-menu__item.unselectable(
+              @click="mobileNavigate('#contacts')"
+            )
+              span 04
+              span Контакты
+
+          .mobile-menu__bottom
+            .mobile-menu__date 18 — 19 ИЮЛЯ 2027
+            .mobile-menu__city Москва
+
+    Transition(name="ticket-modal")
+      .ticket-modal(
+        v-if="ticketModalOpen"
+      )
+        .ticket-modal__backdrop(
+          @click="closeTicketModal"
+        )
+
+        .ticket-modal__panel(
+          role="dialog"
+          aria-modal="true"
+          aria-label="Покупка билета"
+        )
+          button.ticket-modal__close.unselectable(
+            type="button"
+            aria-label="Закрыть"
+            @click="closeTicketModal"
+          )
+            span
+            span
+
+          template(v-if="!ticketSubmitted")
+            .ticket-modal__header
+              .ticket-modal__eyebrow PULSE / TICKETS
+
+              .ticket-modal__title
+                span ПОКУПКА
+                span БИЛЕТА
+
+              .ticket-modal__header-line
+
+            .ticket-modal__content
+              .ticket-modal__ticket
+                .ticket-modal__ticket-top
+                  .ticket-modal__ticket-label STANDARD
+                  .ticket-modal__ticket-number 01
+
+                .ticket-modal__ticket-name
+                  span PULSE
+                  span 2027
+
+                .ticket-modal__ticket-meta
+                  .ticket-modal__ticket-meta-item
+                    span Дата
+                    strong 18 — 19 ИЮЛЯ
+
+                  .ticket-modal__ticket-meta-item
+                    span Город
+                    strong МОСКВА
+
+                .ticket-modal__ticket-bottom
+                  .ticket-modal__ticket-price
+                    span Цена
+                    strong {{ formatPrice(ticketPrice) }} ₽
+
+                  .ticket-modal__quantity
+                    button.ticket-modal__quantity-button.unselectable(
+                      type="button"
+                      aria-label="Уменьшить количество"
+                      @click="decreaseTicketQuantity"
+                    ) −
+
+                    span.ticket-modal__quantity-value {{ ticketQuantity }}
+
+                    button.ticket-modal__quantity-button.unselectable(
+                      type="button"
+                      aria-label="Увеличить количество"
+                      @click="increaseTicketQuantity"
+                    ) +
+
+              form.ticket-modal__form(
+                @submit.prevent="submitTicket"
+              )
+                .ticket-modal__form-title Данные покупателя
+
+                label.ticket-modal__field
+                  span Имя
+
+                  input(
+                    v-model="ticketForm.name"
+                    type="text"
+                    placeholder="Ваше имя"
+                    autocomplete="name"
+                    required
+                  )
+
+                label.ticket-modal__field
+                  span Email
+
+                  input(
+                    v-model="ticketForm.email"
+                    type="email"
+                    placeholder="mail@example.com"
+                    autocomplete="email"
+                    required
+                  )
+
+                label.ticket-modal__field(
+                  :class="{ 'ticket-modal__field_error': phoneError }"
+                )
+                  span Телефон
+
+                  input(
+                    :value="ticketForm.phone"
+                    type="tel"
+                    inputmode="numeric"
+                    maxlength="15"
+                    placeholder="+7999 999-99-99"
+                    autocomplete="tel"
+                    @input="formatPhone"
+                    @blur="ticketForm.phone && validatePhone()"
+                    required
+                  )
+
+                  .ticket-modal__field-error(
+                    v-if="phoneError"
+                  ) Введите номер полностью
+
+                .ticket-modal__summary
+                  .ticket-modal__summary-row
+                    span Билетов
+                    span {{ ticketQuantity }}
+
+                  .ticket-modal__summary-row.ticket-modal__summary-row_total
+                    span Итого
+                    span {{ formatPrice(ticketTotal) }} ₽
+
+                button.ticket-modal__submit.unselectable(
+                  type="submit"
+                )
+                  span Оформить билет
+                  ArrowLongIcon.ticket-modal__submit-arrow
+
+                .ticket-modal__policy
+                  | Нажимая кнопку, вы соглашаетесь с условиями обработки персональных данных
+
+          .ticket-modal__success(
+            v-else
+          )
+            .ticket-modal__success-index 01 / SUCCESS
+
+            .ticket-modal__success-title
+              span БИЛЕТ
+              span ОФОРМЛЕН
+
+            .ticket-modal__success-text
+              | Подтверждение отправлено на
+              br
+              strong {{ ticketForm.email }}
+
+            .ticket-modal__success-info
+              .ticket-modal__success-row
+                span Билетов
+                strong {{ ticketQuantity }}
+
+              .ticket-modal__success-row
+                span Сумма
+                strong {{ formatPrice(ticketTotal) }} ₽
+
+            button.ticket-modal__success-button.unselectable(
+              type="button"
+              @click="closeTicketModal"
+            ) Вернуться на сайт
 
     main
       section.hero
@@ -330,14 +698,19 @@ onBeforeUnmount(() => {
 
         .hero__content
           .hero__eyebrow !{'Фестиваль<br> электронной<br> музыки'}
+
           img.hero__title(
             :src="HeroTitleImage"
+            draggable="false"
+            alt="Pulse"
           )
+
           .hero__date 18 — 19 ИЮЛЯ 2027
+
           .hero__location !{'Индустриальная территория<br> Москва'}
 
           button.hero__button.unselectable(
-            @click="openTicket"
+            @click="openTicketModal"
           )
             span Купить билет
             ArrowLongIcon.hero__button-arrow
@@ -358,10 +731,15 @@ onBeforeUnmount(() => {
       )
         .lineup__header
           .lineup__eyebrow !{'Главные<br> артисты'}
+
           img.lineup__title(
             :src="LineupTitleImage"
+            draggable="false"
+            alt="Лайнап"
           )
+
           .lineup__line
+
         .lineup__items
           .artist(
             v-for="(artist, index) in artists"
@@ -371,21 +749,25 @@ onBeforeUnmount(() => {
             .artist__image-wrap
               img.artist__image(
                 :src="artist.image"
-                :alt="artist.name"
+                draggable="false"
               )
 
               .artist__top
                 .artist__top-left
-                  span {{artist.style}}
+                  span {{ artist.style }}
                   span {{ artist.city }}
+
                 span {{ artist.date }}
 
               .artist__bottom
                 img.artist__name(
                   :src="artist.name"
+                  draggable="false"
                 )
 
-                .artist__description(v-html="artist.description")
+                .artist__description(
+                  v-html="artist.description"
+                )
 
       section.schedule#schedule(
         ref="scheduleSection"
@@ -395,7 +777,11 @@ onBeforeUnmount(() => {
           .schedule__header
             .schedule__eyebrow !{'Программа<br> фестиваля'}
 
-            img.schedule__title(:src="ScheduleTitleImage")
+            img.schedule__title(
+              :src="ScheduleTitleImage"
+              draggable="false"
+              alt="Расписание"
+            )
 
             .schedule__line
 
@@ -411,6 +797,7 @@ onBeforeUnmount(() => {
                 .schedule__artist {{ item[1] }}
 
             .schedule__separation
+
             .schedule__day
               .schedule__date 19 ИЮЛЯ 2027
 
@@ -430,11 +817,15 @@ onBeforeUnmount(() => {
         .tickets#tickets(
           ref="ticketsSection"
           :class="{ 'is-visible': ticketsVisible }"
-          :style="{backgroundImage: `url(${ScheduleImage})`}"
+          :style="{ backgroundImage: `url(${ScheduleImage})` }"
         )
           .tickets__eyebrow Билеты
 
-          img.tickets__title(:src="TicketsTitleImage")
+          img.tickets__title(
+            :src="TicketsTitleImage"
+            draggable="false"
+            alt="Билеты"
+          )
 
           .tickets__card
             .tickets__type Стандартный билет
@@ -442,14 +833,22 @@ onBeforeUnmount(() => {
 
             .tickets__description !{'ДВА ДНЯ ФЕСТИВАЛЯ<br> ВСЕ СЦЕНЫ<br> БЕЗ ОГРАНИЧЕНИЙ'}
 
-            button.tickets__arrow.unselectable
+            button.tickets__arrow.unselectable(
+              type="button"
+              aria-label="Купить билет"
+              @click="openTicketModal"
+            )
               ArrowShortIcon.tickets__arrow-icon
 
       section.cta(
         ref="ctaSection"
         :class="{ 'is-visible': ctaVisible }"
       )
-        img.cta__title(:src="CtaTitleImage")
+        img.cta__title(
+          :src="CtaTitleImage"
+          draggable="false"
+          alt="Увидимся на танцполе"
+        )
 
         .cta__meta
           span 18 — 19 ИЮЛЯ 2027
@@ -459,54 +858,62 @@ onBeforeUnmount(() => {
           span 18+
 
         button.cta__button.unselectable(
-          @click="openTicket"
+          @click="openTicketModal"
         )
           span Купить билет
           ArrowLongIcon.cta__button-arrow
 
-      footer.footer
-        .footer__line
+    footer.footer#contacts
+      .footer__line
 
-        .footer__top
-          .footer__brand
-            img.footer__brand-logo(
-              :src="LogoImage"
-              alt="Pulse"
-            )
+      .footer__top
+        .footer__brand
+          img.footer__brand-logo(
+            :src="LogoImage"
+            alt="Pulse"
+            draggable="false"
+          )
 
-            .footer__brand-text Музыка. Люди. Движение.
+          .footer__brand-text Музыка. Люди. Движение.
 
-          .footer__column
-            .footer__column-title Фестиваль
-            .footer__item(
-              @click="scrollTo('#lineup')"
-            ) Лайнап
-            .footer__item(
-              @click="scrollTo('#schedule')"
-            ) Программа
-            .footer__item(
-              @click="scrollTo('#tickets')"
-            ) Билеты
+        .footer__column
+          .footer__column-title Фестиваль
 
-          .footer__column
-            .footer__column-title На связи
-            a.footer__item(
-              href="mailto:hello@pulse-fest.ru"
-            ) hello@pulse-fest.ru
-            .footer__item Telegram
-            .footer__item ВКонтакте
+          .footer__item(
+            @click="scrollTo('#lineup')"
+          ) Лайнап
 
-        .footer__bottom
-          .footer__copyright © 2027 PULSE
+          .footer__item(
+            @click="scrollTo('#schedule')"
+          ) Программа
 
-          .footer__bottom-right
-            .footer__privacy Политика конфиденциальности
-            .footer__separation
-            .footer__top-button.unselectable(
-              @click="scrollToTop"
-            )
-              span Наверх
-              ArrowShortIcon.footer__arrow
+          .footer__item(
+            @click="scrollTo('#tickets')"
+          ) Билеты
+
+        .footer__column
+          .footer__column-title На связи
+
+          a.footer__item(
+            href="mailto:hello@pulse-fest.ru"
+          ) hello@pulse-fest.ru
+
+          .footer__item Telegram
+          .footer__item ВКонтакте
+
+      .footer__bottom
+        .footer__copyright © 2027 PULSE
+
+        .footer__bottom-right
+          .footer__privacy Политика конфиденциальности
+
+          .footer__separation
+
+          .footer__top-button.unselectable(
+            @click="scrollToTop"
+          )
+            span Наверх
+            ArrowShortIcon.footer__arrow
 </template>
 
 <style lang="stylus" scoped>
@@ -515,6 +922,10 @@ onBeforeUnmount(() => {
   overflow hidden
   background-color #0A0D0D
   color #F6F6F2
+  user-select none
+  -webkit-user-select none
+  -webkit-tap-highlight-color transparent
+  -webkit-user-drag none
 
 .loader
   width 100%
@@ -565,6 +976,9 @@ onBeforeUnmount(() => {
   opacity 0
   transform translateY(-3vh)
 
+  &_menu-open
+    z-index 1002
+
   &__brand
     margin-right 4.01vw
 
@@ -590,17 +1004,503 @@ onBeforeUnmount(() => {
       color #B9FF1A
 
   &__menu
-    width 2vw
+    width 2.5vw
+    height 2vw
     margin-left auto
+    padding 0
+    border 0
+    position relative
+    z-index 1003
     display flex
-    flex-direction column
-    gap .7vh
+    justify-content center
+    align-items center
+    background transparent
     cursor pointer
 
     span
       width 100%
       height 2px
+      display block
+      position absolute
+      left 0
       background-color #B9FF1A
+      transform-origin center
+      transition top .45s cubic-bezier(.16, 1, .3, 1), transform .45s cubic-bezier(.16, 1, .3, 1)
+
+      &:first-child
+        top 32%
+
+      &:last-child
+        top 68%
+
+    &_open
+      span
+        top 50%
+
+        &:first-child
+          top 65%
+          transform rotate(45deg)
+
+        &:last-child
+          transform rotate(-45deg)
+
+.mobile-menu
+  width 100%
+  height 100dvh
+  position fixed
+  inset 0
+  z-index 1000
+
+  &__backdrop
+    position absolute
+    inset 0
+    background-color rgba(0, 0, 0, .68)
+    backdrop-filter blur(5px)
+
+  &__panel
+    width 32vw
+    height 100%
+    padding 14vh 3.5vw 5vh 3.5vw
+    box-sizing border-box
+    position absolute
+    top 0
+    right 0
+    display flex
+    flex-direction column
+    background-color #0A0D0D
+    border-left 1px solid rgba(199, 251, 60, .22)
+
+  &__label
+    margin-bottom 5vh
+    font-family 'Roboto Mono'
+    font-size .729vw
+    font-weight 500
+    letter-spacing .25vw
+    text-transform uppercase
+    color rgba(255, 255, 255, .4)
+
+  &__nav
+    width 100%
+    display flex
+    flex-direction column
+
+  &__item
+    width 100%
+    padding 2.3vh 0
+    display grid
+    grid-template-columns 3vw 1fr
+    align-items center
+    border-bottom 1px solid rgba(255, 255, 255, .15)
+    cursor pointer
+
+    span
+      &:first-child
+        font-family 'Roboto Mono'
+        font-size .729vw
+        color #B9FF1A
+
+      &:last-child
+        font-family Oswald
+        font-size 2.7vw
+        font-weight 500
+        line-height 1
+        text-transform uppercase
+        color #FFFFFF
+        transition color .25s ease, transform .35s cubic-bezier(.16, 1, .3, 1)
+
+    &:hover
+      span
+        &:last-child
+          color #B9FF1A
+          transform translateX(.5vw)
+
+  &__bottom
+    margin-top auto
+    padding-top 3vh
+    border-top 1px solid rgba(255, 255, 255, .15)
+
+  &__date
+    font-family Oswald
+    font-size 1.354vw
+    font-weight 500
+    color #B9FF1A
+
+  &__city
+    margin-top 1vh
+    font-family 'Roboto Mono'
+    font-size .729vw
+    text-transform uppercase
+    color rgba(255, 255, 255, .55)
+
+.ticket-modal
+  width 100%
+  height 100dvh
+  position fixed
+  inset 0
+  z-index 2000
+  display flex
+  justify-content center
+  align-items center
+
+  &__backdrop
+    position absolute
+    inset 0
+    background-color rgba(0, 0, 0, .82)
+    backdrop-filter blur(8px)
+
+  &__panel
+    width 72vw
+    min-height 70vh
+    padding 4.63vh 3.646vw
+    box-sizing border-box
+    position relative
+    z-index 2
+    overflow hidden
+    background-color #0A0D0D
+    border 2px solid #2F3332
+
+  &__close
+    width 2.5vw
+    height 2.5vw
+    padding 0
+    border 0
+    position absolute
+    top 2vw
+    right 2vw
+    z-index 4
+    background transparent
+    cursor pointer
+
+    span
+      width 100%
+      height 2px
+      position absolute
+      top 50%
+      left 0
+      background-color #C8FF2D
+      transition transform .3s ease
+
+      &:first-child
+        transform rotate(45deg)
+
+      &:last-child
+        transform rotate(-45deg)
+
+    &:hover
+      span
+        &:first-child
+          transform rotate(135deg)
+
+        &:last-child
+          transform rotate(45deg)
+
+  &__header
+    margin-bottom 4.63vh
+
+  &__eyebrow
+    margin-bottom 1.481vh
+    font-family 'Roboto Mono'
+    font-size .729vw
+    font-weight 500
+    letter-spacing .16vw
+    color #C8FF2D
+
+  &__title
+    display flex
+    flex-direction column
+    font-family Oswald
+    font-size 4.167vw
+    font-weight 500
+    line-height .9
+    letter-spacing -.1vw
+
+  &__header-line
+    width 100%
+    height 2px
+    margin-top 3vh
+    background-color #353837
+
+  &__content
+    display grid
+    grid-template-columns 1fr 1.1fr
+    gap 4.167vw
+
+  &__ticket
+    min-height 43vh
+    padding 2.778vh 1.823vw
+    box-sizing border-box
+    position relative
+    display flex
+    flex-direction column
+    overflow hidden
+    background-color #C8FF2D
+    color #090C0B
+
+  &__ticket-top
+    display flex
+    justify-content space-between
+    font-family 'Roboto Mono'
+    font-size .729vw
+    font-weight 600
+    letter-spacing .1vw
+
+  &__ticket-name
+    margin-top 4vh
+    display flex
+    flex-direction column
+    font-family Oswald
+    font-size 5.208vw
+    font-weight 600
+    line-height .78
+
+  &__ticket-meta
+    margin-top 4vh
+    display grid
+    grid-template-columns 1fr 1fr
+
+  &__ticket-meta-item
+    display flex
+    flex-direction column
+
+    span
+      margin-bottom .8vh
+      font-family 'Roboto Mono'
+      font-size .625vw
+      letter-spacing .1vw
+      text-transform uppercase
+
+    strong
+      font-family Oswald
+      font-size 1.25vw
+      font-weight 500
+
+  &__ticket-bottom
+    margin-top auto
+    padding-top 2.5vh
+    border-top 2px solid rgba(9, 12, 11, .35)
+    display flex
+    justify-content space-between
+    align-items flex-end
+
+  &__ticket-price
+    display flex
+    flex-direction column
+
+    span
+      margin-bottom .5vh
+      font-family 'Roboto Mono'
+      font-size .625vw
+      text-transform uppercase
+
+    strong
+      font-family Oswald
+      font-size 2.083vw
+      font-weight 500
+
+  &__quantity
+    display flex
+    align-items center
+    border 2px solid #090C0B
+
+  &__quantity-button
+    width 2.604vw
+    height 2.604vw
+    padding 0
+    border 0
+    background transparent
+    color #090C0B
+    font-family Oswald
+    font-size 1.563vw
+    cursor pointer
+    transition background-color .2s ease, color .2s ease
+
+    &:hover
+      background-color #090C0B
+      color #C8FF2D
+
+  &__quantity-value
+    width 2.604vw
+    text-align center
+    font-family Oswald
+    font-size 1.042vw
+    font-weight 500
+
+  &__form
+    display flex
+    flex-direction column
+
+  &__form-title
+    margin-bottom 3vh
+    font-family Oswald
+    font-size 1.458vw
+    font-weight 500
+    letter-spacing .08vw
+    text-transform uppercase
+
+  &__field
+    margin-bottom 2.5vh
+    display flex
+    flex-direction column
+
+    span
+      margin-bottom .9vh
+      font-family 'Roboto Mono'
+      font-size .625vw
+      letter-spacing .08vw
+      text-transform uppercase
+      color #969A98
+
+    input
+      width 100%
+      padding 1.481vh 0
+      border 0
+      border-bottom 2px solid #3B3E3D
+      outline none
+      box-sizing border-box
+      background transparent
+      color #FFFFFF
+      font-family Inter
+      font-size 1.042vw
+      border-radius 0
+      transition border-color .25s ease
+
+      &::placeholder
+        color #575B59
+
+      &:focus
+        border-color #C8FF2D
+
+    &_error
+      input
+        border-color #FF5353
+
+  &__field-error
+    margin-top .7vh
+    font-family 'Roboto Mono'
+    font-size .573vw
+    color #FF5353
+
+  &__summary
+    margin-top 1vh
+    padding-top 2vh
+    border-top 1px solid #353837
+
+  &__summary-row
+    margin-bottom 1vh
+    display flex
+    justify-content space-between
+    font-family Inter
+    font-size .938vw
+    color #A4A6A5
+
+    &_total
+      margin-top 1.5vh
+      margin-bottom 0
+      font-family Oswald
+      font-size 1.667vw
+      font-weight 500
+      color #FFFFFF
+
+  &__submit
+    width 100%
+    margin-top 3vh
+    padding 2.037vh 1.823vw
+    border 0
+    display flex
+    justify-content space-between
+    align-items center
+    background-color #C8FF2D
+    color #090C0B
+    font-family Inter
+    font-size 1.042vw
+    font-weight 700
+    text-transform uppercase
+    cursor pointer
+    transition background-color .25s ease, transform .25s ease
+
+    &:hover
+      background-color #D8FF68
+      transform translateY(-.2vh)
+
+  &__submit-arrow
+    width 2.604vw
+
+  &__policy
+    margin-top 1.2vh
+    font-family 'Roboto Mono'
+    font-size .521vw
+    line-height 1.5
+    color #656866
+
+  &__success
+    min-height 55vh
+    display flex
+    flex-direction column
+    justify-content center
+    align-items center
+    text-align center
+
+  &__success-index
+    margin-bottom 3vh
+    font-family 'Roboto Mono'
+    font-size .729vw
+    letter-spacing .2vw
+    color #C8FF2D
+
+  &__success-title
+    display flex
+    flex-direction column
+    font-family Oswald
+    font-size 6.25vw
+    font-weight 500
+    line-height .8
+    color #C8FF2D
+
+  &__success-text
+    margin-top 4vh
+    font-family Inter
+    font-size 1.042vw
+    line-height 1.5
+    color #A9ACAA
+
+    strong
+      color #FFFFFF
+
+  &__success-info
+    width 25vw
+    margin-top 4vh
+    border-top 1px solid #353837
+
+  &__success-row
+    padding 1.5vh 0
+    border-bottom 1px solid #353837
+    display flex
+    justify-content space-between
+    font-family Inter
+    font-size .938vw
+
+    strong
+      font-family Oswald
+      font-size 1.146vw
+      font-weight 500
+      color #C8FF2D
+
+  &__success-button
+    margin-top 4vh
+    padding 1.852vh 2.604vw
+    border 2px solid #C8FF2D
+    background transparent
+    color #C8FF2D
+    font-family Inter
+    font-size .833vw
+    font-weight 700
+    text-transform uppercase
+    cursor pointer
+    transition background-color .25s ease, color .25s ease
+
+    &:hover
+      background-color #C8FF2D
+      color #090C0B
 
 .is-loaded
   .header
@@ -635,7 +1535,7 @@ onBeforeUnmount(() => {
   display flex
   align-items center
   padding-bottom 7.963vh
-  border-bottom 0.185vh solid rgba(47, 51, 50, 1)
+  border-bottom .185vh solid rgba(47, 51, 50, 1)
 
   &__background
     position absolute
@@ -759,7 +1659,7 @@ onBeforeUnmount(() => {
       width 4.531vw
       height 5px
       background-color #C0BFC4
-      margin-bottom 0.741vh
+      margin-bottom .741vh
       margin-right 1.406vw
 
 .lineup
@@ -830,6 +1730,7 @@ onBeforeUnmount(() => {
 
   &__image
     width 100%
+    display block
     transition transform .8s cubic-bezier(.16, 1, .3, 1), filter .5s ease
 
   &:hover
@@ -967,7 +1868,7 @@ onBeforeUnmount(() => {
     display flex
     justify-content space-between
     align-items flex-end
-    padding 3.241vh 0.156vw
+    padding 3.241vh .156vw
     box-sizing border-box
 
     &-title
@@ -980,7 +1881,7 @@ onBeforeUnmount(() => {
 
     &-line
       width 4.531vw
-      height 0.208vw
+      height .208vw
       background-color rgba(132, 130, 128, 1)
       margin-bottom 1.389vh
 
@@ -1026,7 +1927,7 @@ onBeforeUnmount(() => {
     line-height 1.45
     text-transform uppercase
     color #FFFFFF
-    margin-bottom 0.156vw
+    margin-bottom .156vw
 
   &__price
     line-height 1
@@ -1090,14 +1991,9 @@ onBeforeUnmount(() => {
 
   &__title
     margin 0
-    font-family Impact, sans-serif
-    font-size 7vw
-    line-height .9
-    font-weight 400
-    color #B9FF1A
 
   &__meta
-    margin-top 0.741vh
+    margin-top .741vh
     display flex
     gap 1vw
     font-family Oswald
@@ -1165,7 +2061,7 @@ onBeforeUnmount(() => {
 
   &__column-title
     margin-bottom 2.87vh
-    font-family Roboto Mono
+    font-family 'Roboto Mono'
     font-size 1.25vw
     text-transform uppercase
 
@@ -1205,7 +2101,7 @@ onBeforeUnmount(() => {
 
   &__separation
     height 100%
-    width 0.104vw
+    width .104vw
     background-color #828584
     margin-right 2.969vw
 
@@ -1226,6 +2122,88 @@ onBeforeUnmount(() => {
 .loader-leave-to
   opacity 0
 
+.mobile-menu-enter-active
+  .mobile-menu__backdrop
+    transition opacity .4s ease
+
+  .mobile-menu__panel
+    transition transform .6s cubic-bezier(.16, 1, .3, 1)
+
+.mobile-menu-leave-active
+  .mobile-menu__backdrop
+    transition opacity .3s ease
+
+  .mobile-menu__panel
+    transition transform .4s cubic-bezier(.7, 0, .84, 0)
+
+.mobile-menu-enter-from
+  .mobile-menu__backdrop
+    opacity 0
+
+  .mobile-menu__panel
+    transform translateX(100%)
+
+.mobile-menu-enter-to
+  .mobile-menu__backdrop
+    opacity 1
+
+  .mobile-menu__panel
+    transform translateX(0)
+
+.mobile-menu-leave-from
+  .mobile-menu__backdrop
+    opacity 1
+
+  .mobile-menu__panel
+    transform translateX(0)
+
+.mobile-menu-leave-to
+  .mobile-menu__backdrop
+    opacity 0
+
+  .mobile-menu__panel
+    transform translateX(100%)
+
+.ticket-modal-enter-active
+  transition opacity .35s ease
+
+  .ticket-modal__panel
+    transition opacity .45s ease, transform .6s cubic-bezier(.16, 1, .3, 1)
+
+.ticket-modal-leave-active
+  transition opacity .3s ease
+
+  .ticket-modal__panel
+    transition opacity .3s ease, transform .4s cubic-bezier(.7, 0, .84, 0)
+
+.ticket-modal-enter-from
+  opacity 0
+
+  .ticket-modal__panel
+    opacity 0
+    transform translateY(5vh) scale(.97)
+
+.ticket-modal-enter-to
+  opacity 1
+
+  .ticket-modal__panel
+    opacity 1
+    transform translateY(0) scale(1)
+
+.ticket-modal-leave-from
+  opacity 1
+
+  .ticket-modal__panel
+    opacity 1
+    transform translateY(0) scale(1)
+
+.ticket-modal-leave-to
+  opacity 0
+
+  .ticket-modal__panel
+    opacity 0
+    transform translateY(3vh) scale(.98)
+
 @media(platform: mobile)
   .loader
     &__logo
@@ -1237,204 +2215,517 @@ onBeforeUnmount(() => {
 
   .header
     padding 2vh 5vw
+    align-items center
 
     &__brand
-      width 32vw
+      width auto
+      margin-right 0
+
+    &__brand-icon
+      width 34vw
+      height auto
 
     &__nav
       display none
 
     &__menu
-      width 7vw
+      width 8vw
+      height 8vw
+      display flex
+
+      span
+        height 2px
+
+  .mobile-menu
+    &__panel
+      width 82vw
+      padding 15vh 7vw 6vh 7vw
+
+    &__label
+      margin-bottom 6vh
+      font-size 2.5vw
+      letter-spacing .8vw
+
+    &__item
+      padding 2.5vh 0
+      grid-template-columns 10vw 1fr
+
+      span
+        &:first-child
+          font-size 2.5vw
+
+        &:last-child
+          font-size 10vw
+
+    &__date
+      font-size 4vw
+
+    &__city
+      font-size 2.5vw
+
+  .ticket-modal
+    align-items flex-end
+
+    &__panel
+      width 100%
+      height 94dvh
+      min-height 0
+      padding 8vh 5vw 5vh 5vw
+      border-left 0
+      border-right 0
+      border-bottom 0
+      overflow-y auto
+
+    &__close
+      width 8vw
+      height 8vw
+      top 4vw
+      right 5vw
+
+    &__header
+      margin-bottom 4vh
+
+    &__eyebrow
+      font-size 2.5vw
+      letter-spacing .5vw
+
+    &__title
+      font-size 11vw
+
+    &__header-line
+      margin-top 2vh
+
+    &__content
+      display flex
+      flex-direction column
+      gap 5vh
+
+    &__ticket
+      min-height 48vh
+      padding 3vh 5vw
+
+    &__ticket-top
+      font-size 2.5vw
+
+    &__ticket-name
+      margin-top 4vh
+      font-size 16vw
+
+    &__ticket-meta
+      margin-top 4vh
+
+    &__ticket-meta-item
+      span
+        font-size 2vw
+
+      strong
+        font-size 3.5vw
+
+    &__ticket-price
+      span
+        font-size 2vw
+
+      strong
+        font-size 6vw
+
+    &__quantity-button
+      width 10vw
+      height 10vw
+      font-size 6vw
+
+    &__quantity-value
+      width 10vw
+      font-size 4vw
+
+    &__form-title
+      font-size 5vw
+
+    &__field
+      margin-bottom 2.5vh
+
+      span
+        font-size 2.2vw
+
+      input
+        padding 1.7vh 0
+        font-size 4vw
+
+    &__field-error
+      margin-top 1vh
+      font-size 2.2vw
+
+    &__summary-row
+      font-size 3vw
+
+      &_total
+        font-size 5vw
+
+    &__submit
+      padding 2vh 5vw
+      font-size 3vw
+
+    &__submit-arrow
+      width 8vw
+
+    &__policy
+      font-size 2vw
+
+    &__success
+      min-height 75vh
+
+    &__success-index
+      font-size 2.5vw
+
+    &__success-title
+      font-size 17vw
+
+    &__success-text
+      font-size 3.5vw
+
+    &__success-info
+      width 100%
+
+    &__success-row
+      font-size 3vw
+
+      strong
+        font-size 4vw
+
+    &__success-button
+      padding 2vh 7vw
+      font-size 3vw
 
   .hero
     min-height 100svh
+    padding-bottom 4vh
 
     &__background
       background-position 58% center
 
+    &__overlay
+      background linear-gradient(90deg, rgba(5, 7, 6, .85) 0%, rgba(5, 7, 6, .3) 65%, rgba(5, 7, 6, .45) 100%)
+
     &__content
       width 90vw
       margin-left 5vw
-      padding-top 14vh
+      padding-top 13vh
 
     &__eyebrow
-      font-size 2.5vw
+      margin-top 4vh
+      font-size 2.7vw
+      letter-spacing .5vw
 
     &__title
-      font-size 19vw
+      width 88vw
+      height auto
+      margin 0
 
     &__date
+      margin-top 2vh
       font-size 6vw
 
     &__location
-      font-size 2.3vw
+      margin-top 2vh
+      font-size 2.5vw
+      letter-spacing .4vw
 
     &__button
+      margin-top 3vh
       padding 1.8vh 6vw
       font-size 3vw
 
     &__button-arrow
-      font-size 5vw
+      width 7vw
+      height auto
+      margin-left 5vw
 
     &__right-label
       display none
+
+      &_bottom
+        display none
 
   .lineup
     padding 5vh 5vw
 
     &__header
-      display flex
-      flex-wrap wrap
-      align-items center
-      gap 2vh 4vw
+      display grid
+      grid-template-columns auto 1fr
+      align-items end
+      margin-bottom 3vh
 
     &__eyebrow
+      grid-column 1 / 3
       width 100%
-      font-size 2vw
+      margin-bottom 2vh
+      margin-right 0
+      font-size 2.5vw
+      letter-spacing .6vw
 
     &__title
-      font-size 12vw
+      width 38vw
+      height auto
+      margin-right 4vw
 
     &__line
-      flex 1
-
-    &__all
       width 100%
-      font-size 2vw
+      height 2px
+      margin-bottom 1vh
 
     &__items
-      grid-template-columns 1fr
-      gap 3vh
+      width 100%
+      padding 0
+      display flex
+      flex-direction column
 
   .artist
+    width 100%
+    margin-right 0
+    margin-bottom 3vh
+
+    &:last-child
+      margin-bottom 0
+
+    &__image-wrap
+      width 100%
+
     &__image
+      width 100%
+      display block
       aspect-ratio 1 / 1.1
+      object-fit cover
 
     &__top
+      width calc(100% - 8vw)
       top 4vw
       left 4vw
-      width calc(100% - 8vw)
-      font-size 2.2vw
+      font-size 5vw
+
+      &-left
+        font-size 2.8vw
+        line-height 1.4
 
     &__bottom
+      width calc(100% - 8vw)
       left 4vw
       bottom 4vw
-      width calc(100% - 8vw)
 
     &__name
-      font-size 15vw
+      width 42vw
+      height auto
 
     &__description
-      width 24vw
-      font-size 2vw
+      width 30vw
+      font-size 2.5vw
+      line-height 1.4
+      letter-spacing .5vw
 
   .schedule
-    grid-template-columns 1fr
+    display flex
+    flex-direction column
+    border-top 2px solid rgba(255, 255, 255, .15)
+    border-bottom 2px solid #789022
 
     &__content
+      width 100%
       padding 5vh 5vw
       display block
 
     &__header
-      display flex
-      flex-wrap wrap
+      display grid
+      grid-template-columns auto 1fr
       margin-bottom 4vh
 
     &__eyebrow
+      grid-column 1 / 3
       width 100%
-      font-size 2vw
+      margin-bottom 2vh
+      margin-right 0
+      font-size 2.5vw
+      letter-spacing .6vw
 
     &__title
-      font-size 11vw
+      width 52vw
+      height auto
+      margin-right 4vw
 
     &__line
-      flex 1
-      margin-left 5vw
+      width 100%
+      height 2px
+      margin-bottom 1vh
 
     &__days
-      grid-template-columns 1fr
-      gap 4vh
+      width 100%
+      display flex
+      flex-direction column
+
+    &__day
+      width 100%
+      margin-right 0
+      margin-bottom 4vh
+
+      &:last-of-type
+        margin-left 0
+        margin-bottom 0
+
+    &__separation
+      display none
 
     &__date
-      font-size 4vw
+      font-size 5vw
+      border-bottom 2px solid rgba(30, 33, 33, 1)
 
     &__row
-      grid-template-columns 18vw auto
-      font-size 3vw
+      padding 1.4vh 0
+      grid-template-columns 20vw 1fr
+      border-bottom 2px solid rgba(30, 33, 33, 1)
+      font-size 3.2vw
+
+    &__artist
+      width auto
+      margin-left 0
 
     &__image
+      width 100%
+      min-height 35vh
       margin-top 4vh
-      min-height 30vh
+      padding 3vh 3vw
+
+      &-title
+        font-size 2.5vw
+
+      &-line
+        width 14vw
+        height 2px
 
   .tickets
+    width 100%
+    min-height 55vh
     padding 5vh 5vw
+    border-left 0
+    background-position center
+    background-size cover
 
     &__eyebrow
-      font-size 2vw
+      font-size 2.5vw
+      letter-spacing .6vw
 
     &__title
-      font-size 12vw
+      width 55vw
+      height auto
+      margin 2vh 0 4vh 0
 
     &__card
+      width 100%
       padding 3vh 5vw
+      box-sizing border-box
+      border 2px solid #BCD634
 
     &__type
-      font-size 2vw
+      font-size 2.5vw
+      margin-bottom 1vh
 
     &__price
-      font-size 11vw
+      font-size 12vw
+      margin-bottom 3vh
 
     &__description
-      font-size 2.2vw
+      margin-top 0
+      font-size 2.5vw
+      line-height 1.6
+      letter-spacing .5vw
 
     &__arrow
       width 12vw
       height 12vw
+      top 4vh
       right 5vw
-      font-size 5vw
+      border-width 2px
+
+      &-icon
+        width 7vw
 
   .cta
-    padding 8vh 5vw
+    padding 7vh 5vw
 
     &__title
-      font-size 15vw
+      width 90vw
+      height auto
 
     &__meta
+      margin-top 2vh
       flex-wrap wrap
       justify-content center
-      font-size 3vw
+      gap 1vw 2vw
+      font-size 4vw
 
     &__button
-      padding 1.8vh 8vw
+      margin-top 3vh
+      padding 1.8vh 7vw
       font-size 3vw
+
+      &-arrow
+        width 7vw
+        margin-left 5vw
 
   .footer
-    padding 0 5vw 3vh 5vw
+    padding 0 5vw 4vh 5vw
+
+    &__line
+      height 2px
 
     &__top
-      grid-template-columns 1fr
-      gap 4vh
+      padding 5vh 0
+      display flex
+      flex-direction column
+
+    &__brand
+      margin-bottom 5vh
 
     &__brand-logo
-      width 35vw
+      width 38vw
 
     &__brand-text
+      margin-top 2vh
       font-size 3vw
+
+    &__column
+      margin-bottom 4vh
+
+      &:last-child
+        margin-bottom 0
 
     &__column-title
-      font-size 2vw
+      margin-bottom 2vh
+      font-size 2.5vw
 
     &__item
-      font-size 3vw
+      font-size 3.5vw
+      margin-bottom 1vh
 
     &__bottom
+      padding-top 3vh
       flex-direction column
-      gap 2vh
+      align-items flex-start
       font-size 2.5vw
 
     &__bottom-right
+      width 100%
+      margin-top 3vh
       justify-content space-between
+
+    &__privacy
+      margin-right 0
+
+    &__separation
+      display none
+
+    &__top-button
+      gap 2vw
+
+    &__arrow
+      width 4vw
+      height auto
 
 @keyframes loading-line
   0%
