@@ -1205,7 +1205,7 @@ onBeforeUnmount(() => {
     font-family Oswald
     font-size 4.167vw
     font-weight 500
-    line-height .9
+    line-height 1
     letter-spacing -.1vw
 
   &__header-line
