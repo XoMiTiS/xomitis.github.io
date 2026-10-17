@@ -138,21 +138,15 @@ const wait = (time) => {
   })
 }
 
-const animateLoader = () => {
-  let index = 1
+const animateLoader = async () => {
+  loaderText.value = pulseWord.slice(0, 1)
 
-  const tick = () => {
-    index += 1
-
-    if (index > pulseWord.length) {
-      index = 1
-    }
-
+  for (let index = 2; index <= pulseWord.length; index++) {
+    await wait(180)
     loaderText.value = pulseWord.slice(0, index)
-    loaderTimer = setTimeout(tick, 180)
   }
 
-  loaderTimer = setTimeout(tick, 180)
+  await wait(400)
 }
 
 const preloadImage = (src) => {
