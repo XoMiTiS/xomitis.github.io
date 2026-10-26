@@ -172,7 +172,7 @@ const projects = [
     preview: ZernaSiteImage,
     color: '#EEDDC5',
     width: '80%',
-    // url: 'https://xomitis.github.io/zerna/',
+    url: 'https://xomitis.github.io/zerna/',
     decorations: [
       {
         id: 1,
