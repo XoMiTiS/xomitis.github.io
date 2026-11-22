@@ -11,6 +11,7 @@
     )
       .zerna__header
         .zerna__header-logo.unselectable(
+          v-show="!menuOpen"
           @click="scrollToTop"
         )
           img(
@@ -46,12 +47,18 @@
 
           button.zerna__header-menu.unselectable(
             type="button"
-            :class="{ 'zerna__header-menu_open': menuOpen }"
-            aria-label="Открыть меню"
+            :aria-label="menuOpen ? 'Закрыть меню' : 'Открыть меню'"
+            :aria-expanded="menuOpen"
             @click="toggleMenu"
           )
-            span
-            span
+            svg(
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              aria-hidden="true"
+            )
+              path(:d="menuOpen ? 'M4 4L20 20M20 4L4 20' : 'M2 8H22M2 16H22'")
 
       .zerna__hero-title
         span !{'Хороший<br> день<br> начинается<br> с зерна'}
@@ -391,6 +398,7 @@ import Leaf2Icon from '@/assets/leaf_2.svg'
 import HeartIcon from '@/assets/heart.svg'
 import FlameIcon from '@/assets/flame.svg'
 
+const mobileViewport = window.matchMedia('(max-width: 768px)')
 const menuOpen = ref(false)
 const basketOpen = ref(false)
 const cart = ref([])
@@ -624,6 +632,12 @@ const closeMenu = () => {
   }, 400)
 }
 
+const onViewportChange = (event) => {
+  if (!event.matches && menuOpen.value) {
+    closeMenu()
+  }
+}
+
 const mobileNavigate = (selector) => {
   closeMenu()
 
@@ -658,6 +672,7 @@ const onKeydown = (event) => {
 onMounted(async () => {
   document.body.style.overflow = 'hidden'
   window.addEventListener('keydown', onKeydown)
+  mobileViewport.addEventListener('change', onViewportChange)
 
   await Promise.all([
     animateLoader(),
@@ -675,6 +690,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
+  mobileViewport.removeEventListener('change', onViewportChange)
   document.body.style.overflow = ''
 })
 </script>
@@ -1597,34 +1613,15 @@ onBeforeUnmount(() => {
         height 7vw
         padding 0
         border 0
-        position relative
         display block
         background transparent
+        color rgba(54, 25, 11, 1)
         cursor pointer
 
-        span
+        svg
+          display block
           width 100%
-          height 2px
-          position absolute
-          left 0
-          background-color rgba(54, 25, 11, 1)
-          transition top .4s ease, transform .4s ease
-
-          &:first-child
-            top 32%
-
-          &:last-child
-            top 68%
-
-        &_open
-          span
-            top 50%
-
-            &:first-child
-              transform rotate(45deg)
-
-            &:last-child
-              transform rotate(-45deg)
+          height 100%
 
     &__coffee
       padding 5vh 5vw
@@ -1844,7 +1841,7 @@ onBeforeUnmount(() => {
       flex-direction column
 
     &__item
-      padding 2.5vh 0
+      padding 5.5vh 0
       border-bottom 1px solid rgba(54, 25, 11, .15)
       font-family "Playfair Display"
       font-weight 600
