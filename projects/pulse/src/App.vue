@@ -2198,7 +2198,7 @@ onBeforeUnmount(() => {
     opacity 0
     transform translateY(3vh) scale(.98)
 
-@media(platform: mobile)
+@media(max-width: 768px)
   .loader
     &__logo
       min-width 40vw

@@ -1492,7 +1492,7 @@ onBeforeUnmount(() => {
   .zerna-basket__panel
     transform translateX(100%)
 
-@media(platform: mobile)
+@media(max-width: 768px)
   .zerna-loader
     &__logo
       min-width 50vw
